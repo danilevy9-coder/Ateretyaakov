@@ -1,6 +1,9 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /
+  # Force the server to see the _next folder
+  RewriteRule ^_next/(.*) _next/$1 [L]
+  
+  # Standard Next.js routing
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]

@@ -1,5 +1,4 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home2/fruitguy/public_html/ateretyaakov.com/
-    - /bin/cp -R * $DEPLOYPATH
+    - /bin/cp -R * /home2/fruitguy/public_html/ateretyaakov.com/

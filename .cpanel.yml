@@ -1,4 +1,4 @@
 ---
 deployment:
   tasks:
-    - /bin/cp -R * /home2/fruitguy/public_html/ateretyaakov.com/
+    - /bin/cp -R out/* /home2/fruitguy/public_html/ateretyaakov.com/

@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export', // <--- Magic Ingredient #1: Tells Next.js to build a static site
   images: {
+    unoptimized: true, // <--- Magic Ingredient #2: Required for static exports
     remotePatterns: [
       {
         protocol: 'https',

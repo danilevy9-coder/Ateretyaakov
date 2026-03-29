@@ -2,6 +2,11 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
+import { getPublicId } from '@/lib/imageUrl';
+
+// Env vars set in Vercel dashboard (safe to expose — they're public)
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 // ── YouTube URL → embed URL ────────────────────────────────────
 function toEmbedUrl(url: string): string {
@@ -240,38 +245,73 @@ const imageSlots = [
 
 // ── Slot card with upload ─────────────────────────────────────
 function SlotCard({ slot }: { slot: { path: string; label: string; hint: string; used: string[] } }) {
-  const [imgKey, setImgKey] = useState(0); // force re-render after upload
+  const [imgKey, setImgKey] = useState(0);
   const [exists, setExists] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadOk, setUploadOk] = useState(false);
+  const [uploadErr, setUploadErr] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [copied, setCopied] = useState(false);
+  // After a successful Cloudinary upload, switch the preview to the returned URL
+  const [liveUrl, setLiveUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // strip leading slash for the API
   const apiPath = slot.path.replace(/^\//, '');
+  const publicId = getPublicId(slot.path);
+
+  // Derive the current Cloudinary URL for this slot (if cloud is configured)
+  const cloudinarySrc = CLOUD_NAME
+    ? `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/f_auto,q_auto/${publicId}`
+    : null;
+
+  // The image we actually show: prefer liveUrl (just uploaded) → cloudinary → local path
+  const previewSrc = liveUrl ?? cloudinarySrc ?? slot.path;
 
   const upload = useCallback(async (file: File) => {
     setUploading(true);
     setUploadOk(false);
+    setUploadErr('');
     try {
-      // rename the file to the target filename while keeping extension
-      const ext = file.name.split('.').pop();
-      const targetExt = apiPath.split('.').pop();
-      const form = new FormData();
-      form.append('file', file);
-      form.append('path', apiPath);
-      const res = await fetch('/api/upload', { method: 'POST', body: form });
-      if (res.ok) {
-        setUploadOk(true);
-        setExists(true);
-        setImgKey((k) => k + 1); // refresh <Image>
-        setTimeout(() => setUploadOk(false), 3000);
+      if (CLOUD_NAME && UPLOAD_PRESET) {
+        // ── Cloudinary direct upload (works on Vercel) ──
+        const form = new FormData();
+        form.append('file', file);
+        form.append('upload_preset', UPLOAD_PRESET);
+        form.append('public_id', publicId);
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+          { method: 'POST', body: form }
+        );
+        const data = await res.json() as { secure_url?: string; error?: { message: string } };
+        if (data.secure_url) {
+          setLiveUrl(data.secure_url + '?bust=' + Date.now());
+          setUploadOk(true);
+          setExists(true);
+          setTimeout(() => setUploadOk(false), 4000);
+        } else {
+          setUploadErr(data.error?.message ?? 'Cloudinary upload failed');
+        }
+      } else {
+        // ── Fallback: local server upload (dev mode only) ──
+        const form = new FormData();
+        form.append('file', file);
+        form.append('path', apiPath);
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        if (res.ok) {
+          setUploadOk(true);
+          setExists(true);
+          setImgKey((k) => k + 1);
+          setTimeout(() => setUploadOk(false), 3000);
+        } else {
+          setUploadErr('Server upload failed');
+        }
       }
+    } catch (e) {
+      setUploadErr(String(e));
     } finally {
       setUploading(false);
     }
-  }, [apiPath]);
+  }, [apiPath, publicId]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -304,8 +344,8 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
       {/* Image preview */}
       <div className="relative h-44 bg-black/30 flex items-center justify-center overflow-hidden">
         <Image
-          key={imgKey}
-          src={slot.path}
+          key={imgKey + (liveUrl ?? cloudinarySrc ?? '')}
+          src={previewSrc}
           alt={slot.label}
           fill
           className="object-cover"
@@ -366,18 +406,32 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
           )}
         </button>
 
+        {/* Upload error */}
+        {uploadErr && <p className="text-red-400 text-xs mb-2">{uploadErr}</p>}
+
         {/* Drag hint */}
         <p className="text-white/25 text-xs text-center mb-3">or drag & drop a photo onto this card</p>
 
-        {/* File path */}
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-xs bg-black/40 text-green-400 px-2 py-1.5 rounded font-mono truncate">
-            public{slot.path}
-          </code>
-          <button onClick={copyPath} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs rounded transition-all whitespace-nowrap">
-            {copied ? '✓' : 'Copy'}
-          </button>
-        </div>
+        {/* Cloudinary public_id (shown when Cloudinary is configured) */}
+        {CLOUD_NAME ? (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs bg-black/40 text-sky-400 px-2 py-1.5 rounded font-mono truncate" title="Cloudinary public_id">
+              ☁ {publicId}
+            </code>
+            <button onClick={copyPath} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs rounded transition-all whitespace-nowrap">
+              {copied ? '✓' : 'Copy'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs bg-black/40 text-green-400 px-2 py-1.5 rounded font-mono truncate">
+              public{slot.path}
+            </code>
+            <button onClick={copyPath} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs rounded transition-all whitespace-nowrap">
+              {copied ? '✓' : 'Copy'}
+            </button>
+          </div>
+        )}
 
         {/* Used in */}
         <div className="flex flex-wrap gap-1 mt-2">
@@ -413,6 +467,27 @@ export default function AdminPage() {
         <p className="text-white/50 text-sm max-w-2xl mb-6">
           Click <strong className="text-amber-400">Upload Image</strong> on any card — or drag & drop a photo directly onto it. The site updates instantly.
         </p>
+
+        {/* Cloudinary status banner */}
+        {CLOUD_NAME ? (
+          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl mb-4 flex items-center gap-3">
+            <span className="text-green-400 text-xl">☁</span>
+            <div>
+              <p className="text-green-300 font-semibold text-sm">Cloudinary connected — uploads go straight to the cloud ✓</p>
+              <p className="text-green-300/50 text-xs mt-0.5">Cloud: <code className="text-green-400">{CLOUD_NAME}</code> · Images are permanent on Vercel</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl mb-4">
+            <p className="text-orange-300 font-semibold text-sm mb-2">⚠ Cloudinary not configured — uploads only work locally (not on Vercel)</p>
+            <p className="text-orange-200/60 text-xs mb-3">Add these 2 env vars in your <strong className="text-orange-300">Vercel dashboard → Settings → Environment Variables</strong>, then redeploy:</p>
+            <div className="space-y-1.5 font-mono text-xs">
+              <div className="bg-black/40 rounded px-3 py-2 text-white/70">NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = <span className="text-amber-400">your-cloud-name</span></div>
+              <div className="bg-black/40 rounded px-3 py-2 text-white/70">NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET = <span className="text-amber-400">your-unsigned-preset</span></div>
+            </div>
+            <p className="text-orange-200/50 text-xs mt-3">Free at <a href="https://cloudinary.com" target="_blank" rel="noopener" className="text-orange-300 underline">cloudinary.com</a> — create an account → Settings → Upload → &quot;Add upload preset&quot; → set Signing mode to <strong>Unsigned</strong></p>
+          </div>
+        )}
 
         {/* How-to */}
         <div className="p-5 bg-blue-500/8 border border-blue-500/20 rounded-xl mb-4">

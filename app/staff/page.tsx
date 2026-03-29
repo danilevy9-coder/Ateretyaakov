@@ -1,20 +1,25 @@
-import dynamic from 'next/dynamic';
+'use client';
 
-// Disable server-side rendering entirely for this page.
-// The animation libraries (Framer Motion + GSAP) cause a React hydration
-// mismatch when server-rendered, which produces the removeChild crash.
-const StaffContent = dynamic(() => import('@/components/StaffContent'), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
-        <p className="text-white/40 text-sm">Loading Hanhala…</p>
-      </div>
-    </div>
-  ),
-});
+import React from 'react';
+import { motion } from 'framer-motion';
+import StaffContent from '@/components/StaffContent';
+import settingsData from '@/data/settings.json';
 
 export default function StaffPage() {
-  return <StaffContent />;
+  const staff = settingsData.staff || [];
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0c] pt-24 pb-12">
+      <div className="max-w-7xl mx-auto px-4">
+        <motion.h1 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-5xl md:text-7xl font-bold text-white mb-12 text-center"
+        >
+          Our <span className="text-[#D4AF37]">Hanhala</span>
+        </motion.h1>
+        <StaffContent initialStaff={staff} />
+      </div>
+    </main>
+  );
 }

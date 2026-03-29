@@ -4,8 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { gsap } from 'gsap';
-import Image from 'next/image';
-import { getImageSrc } from '@/lib/imageUrl';
 
 // ── Staff data ────────────────────────────────────────────────
 const staffMembers = [
@@ -90,16 +88,13 @@ He also runs the yeshiva's popular weekly mussar vaad, which is considered among
 ];
 
 // ── Placeholder Image ─────────────────────────────────────────
-function PlaceholderImg({ name, imagePath, className }: { name: string; imagePath?: string; className?: string }) {
-  const [imgFailed, setImgFailed] = useState(false);
+function PlaceholderImg({ name, className }: { name: string; className?: string }) {
   const initials = name
     .split(' ')
     .filter((w) => w !== 'Rabbi')
     .map((w) => w[0])
     .join('')
     .slice(0, 2);
-
-  const cloudSrc = imagePath ? getImageSrc(imagePath) : null;
 
   return (
     <div
@@ -118,17 +113,6 @@ function PlaceholderImg({ name, imagePath, className }: { name: string; imagePat
         </div>
         <p className="text-white/30 text-xs">{name}</p>
       </div>
-      {/* Real photo on top if available */}
-      {cloudSrc && !imgFailed && (
-        <Image
-          src={cloudSrc}
-          alt={name}
-          fill
-          className="object-cover z-20"
-          onError={() => setImgFailed(true)}
-          unoptimized
-        />
-      )}
     </div>
   );
 }
@@ -160,7 +144,7 @@ function StaffCard({
       >
         {/* Photo */}
         <div className="relative h-72 overflow-hidden">
-          <PlaceholderImg name={member.name} imagePath={member.image} className="w-full h-full" />
+          <PlaceholderImg name={member.name} className="w-full h-full" />
           <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-transparent to-transparent" />
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -236,7 +220,7 @@ function StaffModal({
           {/* Left — Photo & Quick Info */}
           <div className="relative">
             <div className="sticky top-0 h-[50vh] lg:h-full min-h-[400px]">
-              <PlaceholderImg name={member.name} imagePath={member.image} className="w-full h-full" />
+              <PlaceholderImg name={member.name} className="w-full h-full" />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent to-obsidian/30 lg:bg-gradient-to-t from-obsidian via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 p-8">
                 <div className="text-gold text-sm font-semibold tracking-widest uppercase mb-2">

@@ -7,7 +7,6 @@ import Image from 'next/image';
 import { motion, useInView, useMotionValue, useTransform } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { getImageSrc } from '@/lib/imageUrl';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -70,7 +69,7 @@ function PlaceholderImg({
       {/* Real image on top — hides placeholder when loaded */}
       {src && !failed && (
         <Image
-          src={getImageSrc(src)}
+          src={src}
           alt={label}
           fill
           className="object-cover z-20"

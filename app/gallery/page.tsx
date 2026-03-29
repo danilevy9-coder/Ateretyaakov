@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { getImageSrc } from '@/lib/imageUrl';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -105,7 +104,7 @@ function GalleryCard({
         {/* Real image — covers placeholder when loaded */}
         {item.src && (
           <Image
-            src={getImageSrc(item.src)}
+            src={item.src}
             alt={item.label}
             fill
             className="object-cover z-10"
@@ -181,7 +180,7 @@ function Lightbox({
           {/* Real image */}
           {item.src && (
             <Image
-              src={getImageSrc(item.src)}
+              src={item.src}
               alt={item.label}
               fill
               className="object-contain z-10"

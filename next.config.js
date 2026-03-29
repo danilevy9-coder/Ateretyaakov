@@ -1,13 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: { unoptimized: true },
-  typescript: {
-    ignoreBuildErrors: true, // <--- The Bypass
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.imgur.com',
+      },
+    ],
+    formats: ['image/avif', 'image/webp'],
   },
-  eslint: {
-    ignoreDuringBuilds: true, // <--- The Other Bypass
+  experimental: {
+    optimizePackageImports: ['framer-motion', 'gsap'],
   },
 };
+
 module.exports = nextConfig;

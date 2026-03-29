@@ -1,3 +1,11 @@
 {
-  "youtubeUrl": "https://youtu.be/NjjVLJV44xw"
+  "youtubeUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+  "staff": [
+    { "id": "1", "name": "Rabbi Yehoshua Liff", "role": "Rosh HaYeshiva", "image": "/images/staff/rabbi-yehoshua-liff.jpg" },
+    { "id": "2", "name": "Rabbi Dov Ber Liff", "role": "Mashgiach", "image": "/images/staff/rabbi-dov-ber-liff.jpg" },
+    { "id": "3", "name": "Rabbi Avi Cohen", "role": "Maggid Shiur", "image": "/images/staff/rabbi-avi-cohen.jpg" },
+    { "id": "4", "name": "Rabbi Moshe Weiss", "role": "Maggid Shiur", "image": "/images/staff/rabbi-moshe-weiss.jpg" },
+    { "id": "5", "name": "Rabbi Nachman Berger", "role": "Maggid Shiur", "image": "/images/staff/rabbi-nachman-berger.jpg" },
+    { "id": "6", "name": "Rabbi Larry Shain", "role": "Administrator", "image": "/images/staff/rabbi-larry-shain.jpg" }
+  ]
 }

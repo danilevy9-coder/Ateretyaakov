@@ -1,10 +1,20 @@
+# 1. Unblock the Next.js Engine
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Force the server to see the _next folder
-  RewriteRule ^_next/(.*) _next/$1 [L]
+  RewriteBase /
   
-  # Standard Next.js routing
+  # Ensure the server allows access to the _next folder
+  RewriteRule ^(_next) - [L]
+  
+  # 2. Handle the "Clean URLs" (Staff, Gallery, etc.)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
+</IfModule>
+
+# 3. Disable the "Underscore Protection" for this folder
+<IfModule mod_authz_core.c>
+    <FilesMatch "^_">
+        Require all granted
+    </FilesMatch>
 </IfModule>

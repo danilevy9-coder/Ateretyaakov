@@ -6,8 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-gsap.registerPlugin(ScrollTrigger);
-
 // ── Gallery items ─────────────────────────────────────────────
 const galleryItems = [
   { id: 1,  src: '/images/gallery/photo-1.png',  label: 'Morning Seder',       category: 'Learning',    aspect: 'tall'   },
@@ -236,11 +234,14 @@ export default function GalleryPage() {
 
   useEffect(() => {
     if (!headerRef.current) return;
-    gsap.fromTo(
-      headerRef.current.querySelectorAll('.anim-target'),
-      { opacity: 0, y: 40 },
-      { opacity: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
-    );
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        headerRef.current!.querySelectorAll('.anim-target'),
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
+      );
+    });
+    return () => ctx.revert();
   }, []);
 
   const handlePrev = () => {

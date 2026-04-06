@@ -5,8 +5,6 @@ import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-gsap.registerPlugin(ScrollTrigger);
-
 // ── Donation tiers ────────────────────────────────────────────
 const tiers = [
   {
@@ -169,23 +167,26 @@ export default function SupportPage() {
 
   useEffect(() => {
     if (!headerRef.current) return;
-    gsap.fromTo(
-      headerRef.current.querySelectorAll('.anim-target'),
-      { opacity: 0, y: 50 },
-      { opacity: 1, y: 0, duration: 1, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
-    );
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        headerRef.current!.querySelectorAll('.anim-target'),
+        { opacity: 0, y: 50 },
+        { opacity: 1, y: 0, duration: 1, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
+      );
 
-    // Scroll-triggered parallax on gold orbs
-    gsap.to('.hero-orb-1', {
-      y: -80,
-      ease: 'none',
-      scrollTrigger: { trigger: headerRef.current, scrub: 2 },
+      // Scroll-triggered parallax on gold orbs
+      gsap.to('.hero-orb-1', {
+        y: -80,
+        ease: 'none',
+        scrollTrigger: { trigger: headerRef.current, scrub: 2 },
+      });
+      gsap.to('.hero-orb-2', {
+        y: -40,
+        ease: 'none',
+        scrollTrigger: { trigger: headerRef.current, scrub: 3 },
+      });
     });
-    gsap.to('.hero-orb-2', {
-      y: -40,
-      ease: 'none',
-      scrollTrigger: { trigger: headerRef.current, scrub: 3 },
-    });
+    return () => ctx.revert();
   }, []);
 
   const handleDonate = (platform: 'causematch' | 'charityextra') => {

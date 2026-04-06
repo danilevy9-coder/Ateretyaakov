@@ -320,11 +320,14 @@ export default function StaffContent() {
 
   useEffect(() => {
     if (!mounted || !headerRef.current) return;
-    gsap.fromTo(
-      headerRef.current.querySelectorAll('.anim-target'),
-      { opacity: 0, y: 40 },
-      { opacity: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
-    );
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        headerRef.current!.querySelectorAll('.anim-target'),
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out', delay: 0.2 }
+      );
+    });
+    return () => ctx.revert();
   }, [mounted]);
 
   return (

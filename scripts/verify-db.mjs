@@ -1,0 +1,11 @@
+import pg from 'pg';
+const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+await client.connect();
+const tables = await client.query(`select table_name from information_schema.tables where table_schema='public' order by table_name`);
+console.log('Tables:', tables.rows.map(r => r.table_name).join(', '));
+const tmpl = await client.query(`select channel, language, count(*) from message_templates group by 1,2 order by 1,2`);
+console.log('\nTemplates by channel/language:');
+for (const r of tmpl.rows) console.log(`  ${r.channel}/${r.language}: ${r.count}`);
+const cols = await client.query(`select column_name from information_schema.columns where table_name='donors' and column_name in ('dedupe_key','balance','segment')`);
+console.log('\nKey donor columns present:', cols.rows.map(r => r.column_name).join(', '));
+await client.end();

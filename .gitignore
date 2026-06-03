@@ -4,3 +4,9 @@ node_modules/
 .env*.local
 .vercel
 tsconfig.tsbuildinfo
+
+# Donor/student data — never commit PII
+*.xlsx
+*.xls
+*.csv
+Ateret Yaakov Campaigns/

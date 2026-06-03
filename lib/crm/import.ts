@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNumber, toDate, cleanStr, normalizePhone } from './util';
-import type { ImportKind } from './ai-mapping';
+import { aiModelName, type ImportKind } from './ai-mapping';
 import type { IssueType } from './types';
 
 const NUMERIC_FIELDS = new Set(['total_pledged', 'total_paid', 'monthly_amount', 'monthly_tuition']);
@@ -99,7 +99,7 @@ export async function commitImport(params: CommitParams): Promise<CommitResult> 
       sheet_name: params.sheetName,
       source_columns: Object.keys(params.mapping),
       mapping: params.mapping,
-      ai_model: process.env.CRM_AI_MODEL || 'claude-sonnet-4-6',
+      ai_model: aiModelName(),
       row_count: params.rows.length,
       created_by: params.createdBy,
     })

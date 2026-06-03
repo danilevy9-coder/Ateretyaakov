@@ -42,6 +42,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
   const [segment, setSegment] = useState(initialSegment || '');
   const [status, setStatus] = useState(initialStatus || '');
@@ -96,6 +97,8 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   }, [supabase, applyFilters, issuesOnly, issueType, sort, asc, page]);
 
   useEffect(() => { load(); }, [load]);
+  // Debounce the search box so we don't query on every keystroke.
+  useEffect(() => { const t = setTimeout(() => setQ(qInput.trim()), 350); return () => clearTimeout(t); }, [qInput]);
   useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc]);
 
   const toggleSort = (key: SortKey) => {
@@ -145,6 +148,45 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     }
   };
 
+  // Export selected donors (or the whole filtered set) to a CSV.
+  const exportCsv = async () => {
+    setSelectingAll(true);
+    setError('');
+    try {
+      let list: Donor[];
+      if (selected.size > 0) {
+        list = Array.from(selected.values());
+      } else {
+        const useInner = issuesOnly || !!issueType;
+        const select = useInner ? '*, donor_issues!inner(type,status)' : '*';
+        let query = supabase.from('donors').select(select);
+        query = applyFilters(query, useInner);
+        query = query.range(0, 9999);
+        const { data, error } = await query;
+        if (error) throw error;
+        list = (data as unknown as Donor[]) ?? [];
+      }
+      const cols: [string, keyof Donor][] = [
+        ['Full name', 'full_name'], ['Hebrew name', 'hebrew_name'], ['Email', 'email'], ['Phone', 'phone'],
+        ['Segment', 'segment'], ['Status', 'status'], ['Pledged', 'total_pledged'], ['Paid', 'total_paid'],
+        ['Balance', 'balance'], ['Monthly', 'monthly_amount'], ['Currency', 'currency'], ['Source', 'source'],
+        ['Last gift', 'last_gift_at'],
+      ];
+      const esc = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      const lines = [cols.map((c) => c[0]).join(',')];
+      for (const d of list) lines.push(cols.map((c) => esc((d as any)[c[1]])).join(','));
+      const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `donors-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setSelectingAll(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   return (
@@ -154,12 +196,18 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <h1 className="text-2xl font-bold">{onlyIssues ? 'Issues' : 'Donors'}</h1>
           <p className="text-slate-400 text-sm">{count.toLocaleString()} records</p>
         </div>
-        <a href="/crm/import" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">📥 Import</a>
+        <div className="flex gap-2">
+          <button onClick={exportCsv} disabled={selectingAll}
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 text-sm">
+            {selectingAll ? 'Exporting…' : `⬇ Export CSV${selected.size > 0 ? ` (${selected.size})` : ''}`}
+          </button>
+          <a href="/crm/import" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">📥 Import</a>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, phone…"
+        <input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search name, email, phone…"
           className="flex-1 min-w-[220px] bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50" />
         <select value={segment} onChange={(e) => setSegment(e.target.value)} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
           <option value="">All segments</option>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const links = [
@@ -18,6 +18,13 @@ export default function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [openIssues, setOpenIssues] = useState<number | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from('donor_issues').select('*', { count: 'exact', head: true }).eq('status', 'open')
+      .then(({ count }) => setOpenIssues(count ?? 0));
+  }, []);
 
   const logout = async () => {
     const supabase = createClient();
@@ -63,7 +70,10 @@ export default function Sidebar({ email }: { email: string }) {
               }`}
             >
               <span>{l.icon}</span>
-              {l.label}
+              <span className="flex-1">{l.label}</span>
+              {l.href === '/crm/issues' && openIssues != null && openIssues > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-xs font-bold">{openIssues}</span>
+              )}
             </Link>
           ))}
         </nav>

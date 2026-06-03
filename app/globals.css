@@ -30,7 +30,13 @@ body {
   color: #ffffff;
   font-family: var(--font-inter);
   overflow-x: hidden;
-  cursor: none; /* Hide default cursor — custom cursor takes over */
+}
+
+/* Hide the native cursor ONLY on the marketing site (which renders the
+   custom cursor). The CRM has no custom cursor, so it keeps the normal mouse. */
+.grain-overlay,
+.grain-overlay * {
+  cursor: none;
 }
 
 /* ── Custom Cursor ── */
@@ -264,9 +270,10 @@ body {
   width: 100%;
 }
 
-/* ── No cursor for mobile ── */
+/* ── No custom cursor for mobile (touch) ── */
 @media (max-width: 768px) {
-  body {
+  .grain-overlay,
+  .grain-overlay * {
     cursor: auto;
   }
   .cursor-dot,

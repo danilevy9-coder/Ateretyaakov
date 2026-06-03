@@ -221,13 +221,14 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
               <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('total_pledged')}>Pledged{sortIcon('total_pledged')}</th>
               <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('total_paid')}>Paid{sortIcon('total_paid')}</th>
               <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('balance')}>Balance{sortIcon('balance')}</th>
+              <th className="text-right px-4 py-2.5">Monthly</th>
               <th className="text-left px-4 py-2.5">Issues</th>
               <th className="text-right px-4 py-2.5">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">No donors found. Try importing a file.</td></tr>}
+            {loading && <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-500">No donors found. Try importing a file.</td></tr>}
             {!loading && rows.map((d) => {
               const sym = currencySymbol(d.currency);
               const openIssues = (d.donor_issues || []).filter((i) => i.status === 'open');
@@ -246,6 +247,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
                   <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_pledged, sym)}</td>
                   <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_paid, sym)}</td>
                   <td className={`px-4 py-2.5 text-right ${d.balance > 0 ? 'text-amber-300' : 'text-slate-500'}`}>{fmtMoney(d.balance, sym)}</td>
+                  <td className="px-4 py-2.5 text-right text-sky-300">{d.monthly_amount ? fmtMoney(d.monthly_amount, sym) + '/mo' : <span className="text-slate-600">—</span>}</td>
                   <td className="px-4 py-2.5">
                     {openIssues.length === 0 ? <span className="text-slate-600">—</span> : (
                       <div className="flex flex-wrap gap-1">

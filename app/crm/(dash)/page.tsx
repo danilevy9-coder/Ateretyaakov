@@ -8,7 +8,7 @@ interface Stats {
   donors: number; monthly: number; campaignOnce: number; campaignMonthly: number;
   openIssues: number; unfulfilled: number; lapsed: number; failed: number;
   students: number; enrolled: number;
-  totalPledged: number; totalPaid: number; currency: string | null;
+  totalPaid: number; outstanding: number; monthlyRecurring: number; currency: string | null;
 }
 
 async function getStats(): Promise<Stats> {
@@ -76,12 +76,12 @@ export default async function Dashboard() {
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Money & Yeshiva</h2>
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">Money</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="Total pledged" value={fmtMoney(stats.totalPledged, currencySymbol(stats.currency))} accent="text-emerald-300" />
-              <Stat label="Total paid" value={fmtMoney(stats.totalPaid, currencySymbol(stats.currency))} accent="text-emerald-300" />
+              <Stat label="Total raised" value={fmtMoney(stats.totalPaid, currencySymbol(stats.currency))} accent="text-emerald-300" />
+              <Stat label="Monthly recurring" value={fmtMoney(stats.monthlyRecurring, currencySymbol(stats.currency))} accent="text-sky-300" />
+              <Stat label="Outstanding owed" value={fmtMoney(stats.outstanding, currencySymbol(stats.currency))} accent={stats.outstanding > 0 ? 'text-amber-300' : 'text-slate-300'} />
               <Stat label="Students" value={stats.students} href="/crm/students" />
-              <Stat label="Enrolled" value={stats.enrolled} href="/crm/students?status=enrolled" />
             </div>
           </div>
         </div>

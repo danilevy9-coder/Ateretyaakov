@@ -74,7 +74,7 @@ for (const r of rows) {
     segment: 'campaign_oneoff',
     source: cleanStr(r['Ambassador / Team']),
     currency: 'ILS',
-    total_pledged: totalPaid,
+    total_pledged: 0, // one-off campaign gifts carry no outstanding pledge
     total_paid: totalPaid,
     first_gift_at: firstYear ? `${firstYear}-01-01` : null,
     last_gift_at: lastYear ? `${lastYear}-01-01` : null,

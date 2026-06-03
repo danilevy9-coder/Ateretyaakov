@@ -1,53 +1,23 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { fmtMoney } from '@/lib/crm/util';
+import { fmtMoney, currencySymbol } from '@/lib/crm/util';
 
 export const dynamic = 'force-dynamic';
 
-async function getStats() {
+interface Stats {
+  donors: number; monthly: number; campaignOnce: number; campaignMonthly: number;
+  openIssues: number; unfulfilled: number; lapsed: number; failed: number;
+  students: number; enrolled: number;
+  totalPledged: number; totalPaid: number; currency: string | null;
+}
+
+async function getStats(): Promise<Stats> {
   const supabase = createClient();
-
-  const count = async (table: string, filter?: (q: any) => any) => {
-    let q = supabase.from(table).select('*', { count: 'exact', head: true });
-    if (filter) q = filter(q);
-    const { count: c } = await q;
-    return c ?? 0;
-  };
-
-  const [
-    donors,
-    monthly,
-    campaignOnce,
-    campaignMonthly,
-    openIssues,
-    unfulfilled,
-    lapsed,
-    failed,
-    students,
-    enrolled,
-  ] = await Promise.all([
-    count('donors'),
-    count('donors', (q) => q.eq('segment', 'monthly_regular')),
-    count('donors', (q) => q.eq('segment', 'campaign_oneoff')),
-    count('donors', (q) => q.eq('segment', 'campaign_monthly')),
-    count('donor_issues', (q) => q.eq('status', 'open')),
-    count('donor_issues', (q) => q.eq('status', 'open').eq('type', 'unfulfilled_pledge')),
-    count('donor_issues', (q) => q.eq('status', 'open').eq('type', 'lapsed')),
-    count('donor_issues', (q) => q.eq('status', 'open').eq('type', 'failed_payment')),
-    count('students'),
-    count('students', (q) => q.eq('status', 'enrolled')),
-  ]);
-
-  // Totals
-  const { data: sums } = await supabase.from('donors').select('total_pledged, total_paid');
-  const totalPledged = (sums ?? []).reduce((a, r: any) => a + Number(r.total_pledged || 0), 0);
-  const totalPaid = (sums ?? []).reduce((a, r: any) => a + Number(r.total_paid || 0), 0);
-
-  return {
-    donors, monthly, campaignOnce, campaignMonthly,
-    openIssues, unfulfilled, lapsed, failed,
-    students, enrolled, totalPledged, totalPaid,
-  };
+  // Single DB call — aggregates run in SQL so they cover ALL rows, not just
+  // the first 1000 (the PostgREST response cap).
+  const { data, error } = await supabase.rpc('crm_dashboard_stats');
+  if (error) throw error;
+  return data as Stats;
 }
 
 function Stat({ label, value, href, accent }: { label: string; value: string | number; href?: string; accent?: string }) {
@@ -108,8 +78,8 @@ export default async function Dashboard() {
           <div>
             <h2 className="text-sm font-semibold text-slate-300 mb-3">Money & Yeshiva</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="Total pledged" value={fmtMoney(stats.totalPledged)} accent="text-emerald-300" />
-              <Stat label="Total paid" value={fmtMoney(stats.totalPaid)} accent="text-emerald-300" />
+              <Stat label="Total pledged" value={fmtMoney(stats.totalPledged, currencySymbol(stats.currency))} accent="text-emerald-300" />
+              <Stat label="Total paid" value={fmtMoney(stats.totalPaid, currencySymbol(stats.currency))} accent="text-emerald-300" />
               <Stat label="Students" value={stats.students} href="/crm/students" />
               <Stat label="Enrolled" value={stats.enrolled} href="/crm/students?status=enrolled" />
             </div>

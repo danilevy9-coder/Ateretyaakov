@@ -32,6 +32,13 @@ export default function DonorDrawer({
     segment: donor.segment, status: donor.status, preferred_language: donor.preferred_language,
   });
   const [savedMsg, setSavedMsg] = useState('');
+  const [unsub, setUnsub] = useState(donor.unsubscribed);
+
+  const resubscribe = async () => {
+    await supabase.from('donors').update({ unsubscribed: false, unsubscribed_at: null }).eq('id', donor.id);
+    setUnsub(false);
+    onChanged();
+  };
 
   const name = donor.full_name || `${donor.first_name ?? ''} ${donor.last_name ?? ''}`.trim() || '—';
 
@@ -110,6 +117,13 @@ export default function DonorDrawer({
           <button onClick={() => onContact(donor)} className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
             ✉ / 💬 Contact {name.split(' ')[0]}
           </button>
+
+          {unsub && (
+            <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-sm">
+              <span className="text-red-300">🚫 Unsubscribed from emails</span>
+              <button onClick={resubscribe} className="text-xs text-amber-300 hover:underline">Re-subscribe</button>
+            </div>
+          )}
 
           {/* Quick edit */}
           <section>

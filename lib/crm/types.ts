@@ -48,6 +48,9 @@ export interface Donor {
   external_id: string | null;
   import_batch_id: string | null;
   raw: Record<string, unknown> | null;
+  unsubscribed: boolean;
+  unsubscribed_at: string | null;
+  unsubscribe_token: string;
 }
 
 export interface DonorIssue {

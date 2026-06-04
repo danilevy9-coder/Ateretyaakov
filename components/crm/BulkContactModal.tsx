@@ -37,8 +37,9 @@ export default function BulkContactModal({
       });
   }, [supabase]);
 
-  const withEmail = useMemo(() => donors.filter((d) => d.email), [donors]);
-  const withoutEmail = donors.length - withEmail.length;
+  const withEmail = useMemo(() => donors.filter((d) => d.email && !d.unsubscribed), [donors]);
+  const unsubscribed = useMemo(() => donors.filter((d) => d.unsubscribed).length, [donors]);
+  const withoutEmail = donors.length - withEmail.length - unsubscribed;
 
   const names = Array.from(new Set(templates.map((t) => t.name)));
 
@@ -107,6 +108,7 @@ export default function BulkContactModal({
           <div className="text-sm bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2">
             <span className="text-emerald-300">{withEmail.length}</span> will be emailed
             {withoutEmail > 0 && <span className="text-slate-400"> · {withoutEmail} have no email (use WhatsApp individually)</span>}
+            {unsubscribed > 0 && <span className="text-slate-400"> · {unsubscribed} unsubscribed (skipped)</span>}
           </div>
 
           <div>

@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { renderTemplate } from '@/lib/crm/util';
 import type { MessageTemplate } from '@/lib/crm/types';
 
 const CATEGORIES = ['general', 'reminder', 'thank_you', 'unfulfilled_pledge', 'lapsed', 'failed_payment'];
+
+// Sample values so you can preview exactly how a template will read.
+const SAMPLE: Record<string, string> = {
+  first_name: 'Yaakov', full_name: 'Yaakov Cohen', amount: '180', balance: '250',
+  monthly_amount: '180', currency: '₪', org: 'Yeshiva Ateret Yaakov',
+};
+const VARS = ['first_name', 'full_name', 'monthly_amount', 'balance', 'amount', 'currency', 'org'];
 const blank: Partial<MessageTemplate> = {
   name: '', channel: 'email', language: 'en', category: 'general', subject: '', body: '', is_default: false,
 };
@@ -15,6 +23,20 @@ export default function TemplatesPage() {
   const [editing, setEditing] = useState<Partial<MessageTemplate> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Insert a {{variable}} at the cursor position in the body.
+  const insertVar = (v: string) => {
+    if (!editing) return;
+    const token = `{{${v}}}`;
+    const el = bodyRef.current;
+    const body = editing.body ?? '';
+    if (!el) { setEditing({ ...editing, body: body + token }); return; }
+    const start = el.selectionStart ?? body.length;
+    const end = el.selectionEnd ?? body.length;
+    setEditing({ ...editing, body: body.slice(0, start) + token + body.slice(end) });
+    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = start + token.length; });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -47,6 +69,8 @@ export default function TemplatesPage() {
   };
 
   const dir = editing?.language === 'he' ? 'rtl' : 'ltr';
+  const previewSubject = editing ? renderTemplate(editing.subject || '', SAMPLE) : '';
+  const previewBody = editing ? renderTemplate(editing.body || '', SAMPLE) : '';
 
   return (
     <div className="p-6 md:p-8 max-w-5xl">
@@ -93,7 +117,7 @@ export default function TemplatesPage() {
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setEditing(null)} />
-          <div className="relative w-full max-w-lg bg-[#0d0e13] border border-white/10 rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-[#0d0e13] border border-white/10 rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="font-bold text-white mb-4">{editing.id ? 'Edit template' : 'New template'}</h2>
             <div className="space-y-3 text-sm">
               <input value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -118,8 +142,27 @@ export default function TemplatesPage() {
                 <input value={editing.subject ?? ''} onChange={(e) => setEditing({ ...editing, subject: e.target.value })}
                   placeholder="Subject" dir={dir} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
               )}
-              <textarea value={editing.body ?? ''} onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-                rows={10} placeholder="Message body" dir={dir} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 leading-relaxed" />
+              {/* Click to insert a variable at the cursor */}
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-xs text-slate-500 self-center mr-1">Insert:</span>
+                {VARS.map((v) => (
+                  <button key={v} type="button" onClick={() => insertVar(v)}
+                    className="px-2 py-1 rounded bg-white/5 hover:bg-amber-500/20 text-amber-300 text-xs font-mono">
+                    {`{{${v}}}`}
+                  </button>
+                ))}
+              </div>
+              <textarea ref={bodyRef} value={editing.body ?? ''} onChange={(e) => setEditing({ ...editing, body: e.target.value })}
+                rows={9} placeholder="Message body" dir={dir} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 leading-relaxed" />
+
+              {/* Live preview with sample values */}
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3" dir={dir}>
+                <p className="text-xs text-slate-500 mb-1 uppercase tracking-wide" dir="ltr">Preview (sample values)</p>
+                {editing.channel === 'email' && previewSubject && (
+                  <p className="text-sm font-semibold text-white mb-1">{previewSubject}</p>
+                )}
+                <p className="text-sm text-slate-300 whitespace-pre-wrap">{previewBody || <span className="text-slate-600">Start typing to see a preview…</span>}</p>
+              </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg bg-white/5 text-slate-300 hover:bg-white/10 text-sm">Cancel</button>

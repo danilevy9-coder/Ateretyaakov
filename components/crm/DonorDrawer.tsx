@@ -73,6 +73,14 @@ export default function DonorDrawer({
     onChanged();
   };
 
+  const deleteDonor = async () => {
+    if (!confirm(`Delete ${name}? This removes the donor and all their contributions, issues and notes. This cannot be undone.`)) return;
+    const { error } = await supabase.from('donors').delete().eq('id', donor.id);
+    if (error) { alert('Delete failed: ' + error.message); return; }
+    onChanged();
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -195,6 +203,14 @@ export default function DonorDrawer({
                 </li>
               ))}
             </ul>
+          </section>
+
+          {/* Danger zone */}
+          <section className="pt-3 border-t border-white/5">
+            <button onClick={deleteDonor}
+              className="text-red-400 hover:text-red-300 text-sm flex items-center gap-2">
+              🗑 Delete this donor
+            </button>
           </section>
         </div>
       </div>

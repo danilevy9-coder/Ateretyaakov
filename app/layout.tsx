@@ -23,9 +23,6 @@ export const metadata: Metadata = {
     description: 'Building Torah. Building Life.',
     siteName: 'Yeshiva Ateret Yaakov',
   },
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({

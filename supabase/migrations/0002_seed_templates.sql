@@ -68,7 +68,7 @@ Warm regards,
  'There was an issue with your recent payment to {{org}}',
  'Dear {{first_name}},
 
-We tried to process your recent contribution of {{currency}}{{amount}} to {{org}}, but the payment did not go through. This usually happens when a card has expired or details have changed.
+We tried to process your monthly contribution of {{currency}}{{monthly_amount}} to {{org}}, but the payment did not go through. This usually happens when a card has expired or details have changed.
 
 You can update your payment details and complete the gift here: [DONATE LINK]
 
@@ -81,7 +81,7 @@ With gratitude,
  'אירעה תקלה בתשלום האחרון שלך ל{{org}}',
  'יקירנו {{first_name}},
 
-ניסינו לחייב את תרומתך האחרונה בסך {{currency}}{{amount}} ל{{org}}, אך התשלום לא עבר. לרוב הדבר קורה כאשר פג תוקף הכרטיס או שהפרטים השתנו.
+ניסינו לחייב את תרומתך החודשית בסך {{currency}}{{monthly_amount}} ל{{org}}, אך התשלום לא עבר. לרוב הדבר קורה כאשר פג תוקף הכרטיס או שהפרטים השתנו.
 
 ניתן לעדכן את פרטי התשלום ולהשלים את התרומה כאן: [DONATE LINK]
 
@@ -121,10 +121,10 @@ Warmly,
  'שלום {{first_name}}, כאן {{org}}. תזכורת ידידותית שנותרה יתרה של {{currency}}{{balance}} מהתחייבותך הנדיבה. ניתן להשלים כאן: [DONATE LINK] — תודה רבה!', true),
 
 ('Payment issue', 'whatsapp', 'en', 'failed_payment', null,
- 'Hi {{first_name}}, this is {{org}}. Your recent payment of {{currency}}{{amount}} didn''t go through — likely an expired card. You can update it here: [DONATE LINK]. Thank you!', true),
+ 'Hi {{first_name}}, this is {{org}}. Your monthly payment of {{currency}}{{monthly_amount}} didn''t go through — likely an expired card. You can update it here: [DONATE LINK]. Thank you!', true),
 
 ('Payment issue', 'whatsapp', 'he', 'failed_payment', null,
- 'שלום {{first_name}}, כאן {{org}}. התשלום האחרון בסך {{currency}}{{amount}} לא עבר — ככל הנראה פג תוקף הכרטיס. ניתן לעדכן כאן: [DONATE LINK]. תודה!', true),
+ 'שלום {{first_name}}, כאן {{org}}. התשלום החודשי בסך {{currency}}{{monthly_amount}} לא עבר — ככל הנראה פג תוקף הכרטיס. ניתן לעדכן כאן: [DONATE LINK]. תודה!', true),
 
 ('We miss you', 'whatsapp', 'en', 'lapsed', null,
  'Hi {{first_name}}, this is {{org}}. We''ve missed you! We''d be honored to have you partner with us again: [DONATE LINK]', true),

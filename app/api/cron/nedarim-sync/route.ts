@@ -59,26 +59,33 @@ async function handle(req: NextRequest, body?: { report?: boolean }) {
     });
   }
 
-  const url = new URL(req.url);
-  const reportParam = body?.report ?? (url.searchParams.has('report') ? url.searchParams.get('report') !== '0' : undefined);
+  try {
+    const url = new URL(req.url);
+    const reportParam = body?.report ?? (url.searchParams.has('report') ? url.searchParams.get('report') !== '0' : undefined);
 
-  const summary = await runNedarimSync(auth.manual ? 'manual' : 'cron');
+    const summary = await runNedarimSync(auth.manual ? 'manual' : 'cron');
 
-  // Weekly digest: on the scheduled day (cron) or when explicitly requested.
-  let reportResult: { to: string } | { error: string } | null = null;
-  const shouldReport = reportParam ?? (!auth.manual && isReportDay());
-  if (shouldReport) {
-    try {
-      reportResult = await sendWeeklyNedarimReport();
-    } catch (e) {
-      reportResult = { error: String(e) };
+    // Weekly digest: on the scheduled day (cron) or when explicitly requested.
+    let reportResult: { to: string } | { error: string } | null = null;
+    const shouldReport = reportParam ?? (!auth.manual && isReportDay());
+    if (shouldReport) {
+      try {
+        reportResult = await sendWeeklyNedarimReport();
+      } catch (e) {
+        reportResult = { error: String(e) };
+      }
     }
-  }
 
-  return NextResponse.json(
-    { ...summary, keepalive, report: reportResult },
-    { status: summary.ok ? 200 : 500 }
-  );
+    return NextResponse.json(
+      { ...summary, keepalive, report: reportResult },
+      { status: summary.ok ? 200 : 500 }
+    );
+  } catch (e) {
+    // Surface the failure in the response body — a blank 500 is undebuggable
+    // from the Vercel cron log alone.
+    console.error('[nedarim-sync]', e);
+    return NextResponse.json({ ok: false, keepalive, error: String(e) }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {

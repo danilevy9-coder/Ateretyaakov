@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
 import type { Donor } from '@/lib/crm/types';
+import { CategoryChip, type Category } from './CategoriesClient';
 
 interface Issue { id: string; type: string; status: string; amount: number | null; detail: string | null; detected_at: string; }
 interface Contribution { id: string; amount: number; paid_on: string | null; status: string; method: string | null; campaign: string | null; }
@@ -33,6 +34,8 @@ export default function DonorDrawer({
   });
   const [savedMsg, setSavedMsg] = useState('');
   const [unsub, setUnsub] = useState(donor.unsubscribed);
+  const [allCats, setAllCats] = useState<Category[]>([]);
+  const [myCats, setMyCats] = useState<Set<string>>(new Set());
 
   const resubscribe = async () => {
     await supabase.from('donors').update({ unsubscribed: false, unsubscribed_at: null }).eq('id', donor.id);
@@ -43,16 +46,34 @@ export default function DonorDrawer({
   const name = donor.full_name || `${donor.first_name ?? ''} ${donor.last_name ?? ''}`.trim() || '—';
 
   const load = async () => {
-    const [i, c, n] = await Promise.all([
+    const [i, c, n, cat, mine] = await Promise.all([
       supabase.from('donor_issues').select('*').eq('donor_id', donor.id).order('created_at', { ascending: false }),
       supabase.from('donor_contributions').select('*').eq('donor_id', donor.id).order('paid_on', { ascending: false }).limit(50),
       supabase.from('donor_notes').select('*').eq('donor_id', donor.id).order('created_at', { ascending: false }),
+      supabase.from('categories').select('*').order('name'),
+      supabase.from('donor_categories').select('category_id').eq('donor_id', donor.id),
     ]);
     setIssues((i.data as any) ?? []);
     setContribs((c.data as any) ?? []);
     setNotes((n.data as any) ?? []);
+    setAllCats((cat.data as Category[]) ?? []);
+    setMyCats(new Set(((mine.data as any[]) ?? []).map((r) => r.category_id)));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [donor.id]);
+
+  const toggleCategory = async (cat: Category) => {
+    if (myCats.has(cat.id)) {
+      await supabase.from('donor_categories').delete().eq('donor_id', donor.id).eq('category_id', cat.id);
+    } else {
+      await supabase.from('donor_categories').insert({ donor_id: donor.id, category_id: cat.id });
+    }
+    setMyCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+      return next;
+    });
+    onChanged();
+  };
 
   const saveEdit = async () => {
     await supabase.from('donors').update(edit).eq('id', donor.id);
@@ -158,6 +179,24 @@ export default function DonorDrawer({
                 {savedMsg && <span className="text-emerald-300 text-xs">{savedMsg}</span>}
               </div>
             </div>
+          </section>
+
+          {/* Categories */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-300">Categories</h3>
+              <a href="/crm/categories" className="text-xs text-amber-300 hover:underline">Manage</a>
+            </div>
+            {allCats.length === 0 ? (
+              <p className="text-slate-600 text-sm">No categories yet — <a href="/crm/categories" className="underline">create some</a>.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {allCats.map((c) => (
+                  <CategoryChip key={c.id} cat={c} dim={!myCats.has(c.id)} onClick={() => toggleCategory(c)} />
+                ))}
+              </div>
+            )}
+            <p className="text-slate-600 text-xs mt-1.5">Click a chip to assign / unassign.</p>
           </section>
 
           {/* Issues */}

@@ -7,6 +7,7 @@ import type { Donor, DonorSegment } from '@/lib/crm/types';
 import DonorDrawer from './DonorDrawer';
 import ContactModal from './ContactModal';
 import BulkContactModal from './BulkContactModal';
+import { CategoryChip, type Category } from './CategoriesClient';
 
 const PAGE_SIZE = 50;
 
@@ -24,7 +25,10 @@ const SEGMENT_COLOR: Record<DonorSegment, string> = {
 };
 
 type SortKey = 'full_name' | 'total_pledged' | 'total_paid' | 'balance' | 'last_gift_at' | 'created_at';
-type Row = Donor & { donor_issues?: { type: string; status: string }[] };
+type Row = Donor & {
+  donor_issues?: { type: string; status: string }[];
+  donor_categories?: { category_id: string }[];
+};
 
 interface Props {
   initialSegment?: string;
@@ -48,6 +52,10 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   const [status, setStatus] = useState(initialStatus || '');
   const [issueType, setIssueType] = useState(initialIssueType || '');
   const [issuesOnly, setIssuesOnly] = useState(!!onlyIssues || !!initialIssueType);
+  const [cats, setCats] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [bulkCat, setBulkCat] = useState('');
+  const [catBusy, setCatBusy] = useState(false);
 
   const [sort, setSort] = useState<SortKey>('created_at');
   const [asc, setAsc] = useState(false);
@@ -65,6 +73,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       query = query.eq('donor_issues.status', 'open');
       if (issueType) query = query.eq('donor_issues.type', issueType);
     }
+    if (categoryFilter) query = query.eq('donor_categories.category_id', categoryFilter);
     if (segment) query = query.eq('segment', segment);
     if (status) query = query.eq('status', status);
     if (q.trim()) {
@@ -72,14 +81,20 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       query = query.or(`full_name.ilike.${term},email.ilike.${term},phone.ilike.${term},last_name.ilike.${term}`);
     }
     return query;
-  }, [segment, status, issueType, q]);
+  }, [segment, status, issueType, q, categoryFilter]);
+
+  // Category embed becomes an inner join while filtering by category.
+  const catEmbed = useCallback(
+    () => `donor_categories${categoryFilter ? '!inner' : ''}(category_id)`,
+    [categoryFilter]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const useInner = issuesOnly || !!issueType;
-      const select = useInner ? '*, donor_issues!inner(type,status)' : '*, donor_issues(type,status)';
+      const select = (useInner ? '*, donor_issues!inner(type,status)' : '*, donor_issues(type,status)') + `, ${catEmbed()}`;
       let query = supabase.from('donors').select(select, { count: 'exact' });
       query = applyFilters(query, useInner);
       query = query.order(sort, { ascending: asc, nullsFirst: false });
@@ -99,7 +114,12 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   useEffect(() => { load(); }, [load]);
   // Debounce the search box so we don't query on every keystroke.
   useEffect(() => { const t = setTimeout(() => setQ(qInput.trim()), 350); return () => clearTimeout(t); }, [qInput]);
-  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc]);
+  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, categoryFilter]);
+  useEffect(() => {
+    supabase.from('categories').select('*').order('name')
+      .then(({ data }) => setCats((data as Category[]) ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleSort = (key: SortKey) => {
     if (sort === key) setAsc((v) => !v);
@@ -130,7 +150,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     setSelectingAll(true);
     try {
       const useInner = issuesOnly || !!issueType;
-      const select = useInner ? '*, donor_issues!inner(type,status)' : '*';
+      const select = (useInner ? '*, donor_issues!inner(type,status)' : '*') + `, ${catEmbed()}`;
       let query = supabase.from('donors').select(select);
       query = applyFilters(query, useInner);
       query = query.range(0, 4999); // safety cap
@@ -158,7 +178,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
         list = Array.from(selected.values());
       } else {
         const useInner = issuesOnly || !!issueType;
-        const select = useInner ? '*, donor_issues!inner(type,status)' : '*';
+        const select = (useInner ? '*, donor_issues!inner(type,status)' : '*') + `, ${catEmbed()}`;
         let query = supabase.from('donors').select(select);
         query = applyFilters(query, useInner);
         query = query.range(0, 9999);
@@ -173,8 +193,12 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
         ['Last gift', 'last_gift_at'],
       ];
       const esc = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-      const lines = [cols.map((c) => c[0]).join(',')];
-      for (const d of list) lines.push(cols.map((c) => esc((d as any)[c[1]])).join(','));
+      const catName = new Map(cats.map((c) => [c.id, c.name]));
+      const catsOf = (d: any) =>
+        ((d.donor_categories ?? []) as { category_id: string }[])
+          .map((l) => catName.get(l.category_id)).filter(Boolean).join('; ');
+      const lines = [[...cols.map((c) => c[0]), 'Categories'].join(',')];
+      for (const d of list) lines.push([...cols.map((c) => esc((d as any)[c[1]])), esc(catsOf(d))].join(','));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -184,6 +208,35 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       setError(e.message || String(e));
     } finally {
       setSelectingAll(false);
+    }
+  };
+
+  // Assign / remove a category for every selected donor.
+  const bulkCategory = async (mode: 'add' | 'remove') => {
+    if (!bulkCat || selected.size === 0) return;
+    setCatBusy(true);
+    setError('');
+    try {
+      const ids = Array.from(selected.keys());
+      if (mode === 'add') {
+        const rows = ids.map((donor_id) => ({ donor_id, category_id: bulkCat }));
+        for (let i = 0; i < rows.length; i += 500) {
+          const { error } = await supabase.from('donor_categories')
+            .upsert(rows.slice(i, i + 500), { onConflict: 'donor_id,category_id', ignoreDuplicates: true });
+          if (error) throw error;
+        }
+      } else {
+        for (let i = 0; i < ids.length; i += 200) {
+          const { error } = await supabase.from('donor_categories')
+            .delete().eq('category_id', bulkCat).in('donor_id', ids.slice(i, i + 200));
+          if (error) throw error;
+        }
+      }
+      load();
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setCatBusy(false);
     }
   };
 
@@ -222,6 +275,11 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <option value="lapsed">Lapsed</option>
           <option value="inactive">Inactive</option>
         </select>
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+          className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
+          <option value="">All categories</option>
+          {cats.map((c) => <option key={c.id} value={c.id}>🏷 {c.name}</option>)}
+        </select>
         <select value={issueType} onChange={(e) => { setIssueType(e.target.value); if (e.target.value) setIssuesOnly(true); }}
           className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
           <option value="">Any issue</option>
@@ -248,10 +306,29 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
             )}
             <button onClick={clearSelection} className="ml-3 underline hover:text-amber-100">Clear</button>
           </div>
-          <button onClick={() => setBulkOpen(true)}
-            className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
-            ✉ Email {selected.size} selected
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {cats.length > 0 && (
+              <>
+                <select value={bulkCat} onChange={(e) => setBulkCat(e.target.value)}
+                  className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
+                  <option value="">🏷 Category…</option>
+                  {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button onClick={() => bulkCategory('add')} disabled={!bulkCat || catBusy}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-sm">
+                  {catBusy ? '…' : '+ Assign'}
+                </button>
+                <button onClick={() => bulkCategory('remove')} disabled={!bulkCat || catBusy}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-sm">
+                  − Remove
+                </button>
+              </>
+            )}
+            <button onClick={() => setBulkOpen(true)}
+              className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
+              ✉ Email {selected.size} selected
+            </button>
+          </div>
         </div>
       )}
 
@@ -291,7 +368,17 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
                     <div className="truncate max-w-[200px]">{d.email || <span className="opacity-40">no email</span>}</div>
                     <div className="text-xs text-slate-500">{d.phone || ''}</div>
                   </td>
-                  <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-xs ${SEGMENT_COLOR[d.segment]}`}>{SEGMENT_LABEL[d.segment]}</span></td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-xs ${SEGMENT_COLOR[d.segment]}`}>{SEGMENT_LABEL[d.segment]}</span>
+                    {(d.donor_categories?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {d.donor_categories!.map((l) => {
+                          const c = cats.find((x) => x.id === l.category_id);
+                          return c ? <CategoryChip key={c.id} cat={c} /> : null;
+                        })}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_pledged, sym)}</td>
                   <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_paid, sym)}</td>
                   <td className={`px-4 py-2.5 text-right ${d.balance > 0 ? 'text-amber-300' : 'text-slate-500'}`}>{fmtMoney(d.balance, sym)}</td>

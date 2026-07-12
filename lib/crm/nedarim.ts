@@ -129,7 +129,25 @@ export function friendlyErrorReason(errorText: string | null, language: 'en' | '
 // ── HTTP ─────────────────────────────────────────────────────────────
 class NedarimApiError extends Error {}
 
+// SAFETY: this integration is strictly READ-ONLY towards Nedarim Plus.
+// The management API also exposes destructive actions (UpdateKevaNew,
+// DeleteKeva, freeze, single-charge, receipts…) — none of them may ever
+// be called from this codebase. Every request funnels through callManage,
+// which refuses any action not on this list.
+const READ_ONLY_ACTIONS = new Set([
+  'GetKevaJson',    // list standing orders
+  'GetKevaId',      // one standing order + charge history
+  'GetKevaNew',     // standing orders as shown in the UI
+  'GetHistoryJson', // transaction history
+  'GetErrorLogsCSV',// declined-charges export
+]);
+
 async function callManage(action: string, extra: Record<string, string> = {}): Promise<unknown> {
+  if (!READ_ONLY_ACTIONS.has(action)) {
+    throw new NedarimApiError(
+      `Blocked: "${action}" is not a read-only action. This integration never writes to Nedarim Plus.`
+    );
+  }
   const mosadId = process.env.NEDARIM_MOSAD_ID;
   const apiPassword = process.env.NEDARIM_API_PASSWORD;
   if (!mosadId || !apiPassword) {

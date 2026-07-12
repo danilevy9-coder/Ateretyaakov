@@ -67,6 +67,10 @@ Test without credentials by setting `NEDARIM_MOCK=1` (bouncing fixtures) or `NED
 Note: the API is rate-limited by Nedarim (20 list calls/hour) and access must be requested from their
 office — automated access without an issued API password can get the terminal blocked.
 
+**Read-only guarantee:** the integration never writes to Nedarim Plus. It cannot modify, charge,
+freeze or delete standing orders — a code-level allowlist (`READ_ONLY_ACTIONS` in `lib/crm/nedarim.ts`)
+blocks every non-read API action before any request is sent.
+
 ## Daily use
 - Go to **`/crm`**, sign in.
 - **Import** tab → choose Donors / Monthly issues / Yeshiva students → upload a file → review the AI's column mapping → Import.

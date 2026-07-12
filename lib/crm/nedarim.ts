@@ -286,6 +286,87 @@ export async function fetchKevaDetail(kevaId: string): Promise<KevaDetail | null
   };
 }
 
+// ── Transaction history (GetHistoryJson) ────────────────────────────
+export interface NedarimPayment {
+  transactionId: string;
+  transactionNum: number | null;
+  kevaId: string | null;
+  clientName: string | null;
+  zeout: string | null;
+  email: string | null;
+  phone: string | null;
+  amount: number | null;
+  currency: 'ILS' | 'USD';
+  paidAt: string | null; // ISO timestamp
+  transactionType: string | null;
+  confirmation: string | null;
+  shovar: string | null;
+  lastNum: string | null;
+  groupe: string | null;
+  comments: string | null;
+  masofId: string | null;
+  receiptId: string | null;
+  raw: Record<string, unknown>;
+}
+
+// TransactionTime arrives as "dd/mm/yyyy hh:mm[:ss]" (year may be 2-digit).
+function parseNedarimDateTime(v: unknown): string | null {
+  const s = str(v);
+  if (!s) return null;
+  const d = parseNedarimDate(s);
+  if (!d) return null;
+  const t = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const time = t ? `${t[1].padStart(2, '0')}:${t[2]}:${t[3] ?? '00'}` : '00:00:00';
+  return `${d}T${time}+03:00`; // Israel time
+}
+
+function parsePaymentRow(row: Record<string, unknown>): NedarimPayment {
+  const idStr = String(row.TransactionId ?? '');
+  const idNum = parseInt(idStr, 10);
+  return {
+    transactionId: idStr,
+    transactionNum: Number.isFinite(idNum) ? idNum : null,
+    kevaId: str(row.KevaId),
+    clientName: str(row.ClientName),
+    zeout: str(row.Zeout),
+    email: str(row.Mail)?.toLowerCase() ?? null,
+    phone: str(row.Phone),
+    amount: num(row.Amount),
+    currency: String(row.Currency) === '2' ? 'USD' : 'ILS',
+    paidAt: parseNedarimDateTime(row.TransactionTime),
+    transactionType: str(row.TransactionType),
+    confirmation: str(row.Confirmation),
+    shovar: str(row.Shovar),
+    lastNum: str(row.LastNum),
+    groupe: str(row.Groupe),
+    comments: str(row.Comments),
+    masofId: str(row.MasofId),
+    receiptId: str(row.KabalaId),
+    raw: row,
+  };
+}
+
+/**
+ * One page of transaction history, strictly after `afterId` (exclusive).
+ * Rate-limited by Nedarim to 20 calls/hour — callers must page sparingly.
+ */
+export async function fetchHistoryPage(afterId?: string | null, max = 2000): Promise<NedarimPayment[]> {
+  if (process.env.NEDARIM_MOCK) return mockPayments(afterId);
+
+  const extra: Record<string, string> = { MaxId: String(max) };
+  if (afterId) extra.LastId = afterId;
+  const data = await callManage('GetHistoryJson', extra);
+  const rows: Record<string, unknown>[] = Array.isArray(data)
+    ? (data as Record<string, unknown>[])
+    : Array.isArray((data as Record<string, unknown>)?.data)
+      ? ((data as Record<string, unknown>).data as Record<string, unknown>[])
+      : [];
+  if (!Array.isArray(data) && !rows.length) {
+    throw new NedarimApiError('Unexpected GetHistoryJson response: ' + JSON.stringify(data).slice(0, 200));
+  }
+  return rows.map(parsePaymentRow).filter((p) => p.transactionId);
+}
+
 // ── Mock fixtures (NEDARIM_MOCK=1 bouncing / =2 recovered) ──────────
 // Lets the whole sync pipeline run end-to-end with no credentials.
 function mockKevas(mode: string): NedarimKeva[] {
@@ -325,6 +406,16 @@ function mockKevas(mode: string): NedarimKeva[] {
     },
   ];
   return base.map((r) => parseKevaRow(r as Record<string, unknown>));
+}
+
+function mockPayments(afterId?: string | null): NedarimPayment[] {
+  if (afterId && parseInt(afterId, 10) >= 500003) return []; // cursor exhausted
+  const rows = [
+    { TransactionId: '500001', KevaId: '900001', ClientName: 'ישראל ישראלי', Mail: 'israel.test@example.com', Phone: '0501234567', Amount: '180', Currency: '1', TransactionTime: '01/04/2026 09:15', TransactionType: 'הוראת קבע', Confirmation: '123456', LastNum: '4321', Groupe: 'Monthly', KabalaId: '7001' },
+    { TransactionId: '500002', KevaId: '900002', ClientName: 'Sarah Levy', Mail: 'sarah.test@example.com', Phone: '0521111111', Amount: '360', Currency: '1', TransactionTime: '15/06/2026 10:00', TransactionType: 'הוראת קבע', Confirmation: '123457', LastNum: '9876', Groupe: 'General', KabalaId: '7002' },
+    { TransactionId: '500003', KevaId: '', ClientName: 'Moshe Green', Mail: 'moshe.test@example.com', Phone: '0541112222', Amount: '1000', Currency: '1', TransactionTime: '05/05/2026 20:30', TransactionType: 'רגיל', Confirmation: '123458', LastNum: '5555', Groupe: 'Campaign', KabalaId: '7003' },
+  ].filter((r) => !afterId || parseInt(r.TransactionId, 10) > parseInt(afterId, 10));
+  return rows.map((r) => parsePaymentRow(r as Record<string, unknown>));
 }
 
 function mockDetail(kevaId: string): KevaDetail {

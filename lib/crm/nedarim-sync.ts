@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   classifyError,
   fetchAllKevas,
+  fetchHistoryPage,
   fetchKevaDetail,
   friendlyErrorReason,
   monthsUntilExpiry,
@@ -40,6 +41,7 @@ export interface SyncSummary {
   emailsSent: number;
   emailsFailed: number;
   emailsSkipped: number;
+  paymentsImported: number;
 }
 
 interface DonorLite {
@@ -146,6 +148,7 @@ export async function runNedarimSync(
       runId: null, ok: false, error: 'A sync is already running — try again in a minute.',
       kevasTotal: 0, kevasActive: 0, kevasBouncing: 0, kevasCompleted: 0,
       newBounces: 0, recovered: 0, emailsSent: 0, emailsFailed: 0, emailsSkipped: 0,
+      paymentsImported: 0,
     };
   }
 
@@ -160,6 +163,7 @@ export async function runNedarimSync(
   const summary: SyncSummary = {
     runId, ok: false, kevasTotal: 0, kevasActive: 0, kevasBouncing: 0, kevasCompleted: 0,
     newBounces: 0, recovered: 0, emailsSent: 0, emailsFailed: 0, emailsSkipped: 0,
+    paymentsImported: 0,
   };
   const report: Record<string, unknown[]> = {
     newBounces: [], recovered: [], emailsSent: [], needsAttention: [], expiringCards: [],
@@ -280,16 +284,85 @@ export async function runNedarimSync(
       if (error) throw new Error('nedarim_keva upsert: ' + error.message);
     }
 
+    // 4b ── transaction history mirror ---------------------------------------
+    // Incremental: resume from the highest TransactionId already stored.
+    // Rate limit is 20 calls/hour, so page conservatively; a big first
+    // import simply continues across the next runs via the cursor.
+    try {
+      const { data: cursorRow } = await supabase
+        .from('nedarim_payments')
+        .select('transaction_num')
+        .order('transaction_num', { ascending: false })
+        .limit(1);
+      let cursor: string | null = cursorRow?.[0]?.transaction_num != null
+        ? String(cursorRow[0].transaction_num) : null;
+
+      const MAX_HISTORY_PAGES = trigger === 'manual' ? 8 : 4;
+      for (let page = 0; page < MAX_HISTORY_PAGES; page++) {
+        const payments = await fetchHistoryPage(cursor);
+        if (!payments.length) break;
+        const rows = payments.map((p) => {
+          let donorId = p.kevaId ? donorIdByKeva.get(p.kevaId) ?? null : null;
+          if (!donorId) {
+            const d =
+              (p.email && idx.byEmail.get(p.email)) ||
+              (normalizePhone(p.phone) && idx.byPhone.get(normalizePhone(p.phone))) ||
+              null;
+            donorId = d ? d.id : null;
+          }
+          return {
+            transaction_id: p.transactionId,
+            transaction_num: p.transactionNum,
+            keva_id: p.kevaId,
+            donor_id: donorId,
+            client_name: p.clientName,
+            zeout: p.zeout,
+            email: p.email,
+            phone: p.phone,
+            amount: p.amount,
+            currency: p.currency,
+            paid_at: p.paidAt,
+            transaction_type: p.transactionType,
+            confirmation: p.confirmation,
+            shovar: p.shovar,
+            last_num: p.lastNum,
+            groupe: p.groupe,
+            comments: p.comments,
+            masof_id: p.masofId,
+            receipt_id: p.receiptId,
+            raw: p.raw,
+          };
+        });
+        for (let i = 0; i < rows.length; i += 500) {
+          const { error } = await supabase
+            .from('nedarim_payments')
+            .upsert(rows.slice(i, i + 500), { onConflict: 'transaction_id', ignoreDuplicates: true });
+          if (error) throw new Error('nedarim_payments upsert: ' + error.message);
+        }
+        summary.paymentsImported += payments.length;
+        if (payments.length < 2000) break;
+        cursor = payments[payments.length - 1].transactionId;
+      }
+    } catch (e) {
+      // History import is additive — a failure here must not block bounce
+      // detection and outreach. Surface it in the run report instead.
+      report.needsAttention.push({ reason: `Payment-history import error: ${String(e)}` });
+    }
+
     // 5 ── issue lifecycle ---------------------------------------------------
+    // Includes snoozed ("left out") issues so we never re-create or re-email
+    // an issue the admin explicitly parked.
     const openIssues = await fetchAllRows<{
-      id: string; donor_id: string; keva_id: string | null; type: string;
+      id: string; donor_id: string; keva_id: string | null; type: string; status: string;
       notify_count: number; last_notified_at: string | null; detected_at: string;
-    }>(supabase, 'donor_issues', 'id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at',
-      (q) => q.in('type', ['failed_payment', 'lapsed']).eq('status', 'open'));
+    }>(supabase, 'donor_issues', 'id, donor_id, keva_id, type, status, notify_count, last_notified_at, detected_at',
+      (q) => q.in('type', ['failed_payment', 'lapsed']).in('status', ['open', 'snoozed']));
 
     const issueByKevaId = new Map(openIssues.filter((i) => i.keva_id).map((i) => [i.keva_id!, i]));
     const legacyIssueByDonor = new Map(
-      openIssues.filter((i) => !i.keva_id && i.type === 'failed_payment').map((i) => [i.donor_id, i])
+      openIssues
+        .filter((i) => !i.keva_id && i.type === 'failed_payment' && i.status === 'open')
+        .map((i) => [i.donor_id, i])
     );
 
     const kevaById = new Map(kevas.map((k) => [k.kevaId, k]));
@@ -364,7 +437,7 @@ export async function runNedarimSync(
             donor_id: donorId, type: 'failed_payment', status: 'open',
             amount: k.amount, detail, detected_at: today, keva_id: k.kevaId, raw: k.raw,
           })
-          .select('id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at')
+          .select('id, donor_id, keva_id, type, status, notify_count, last_notified_at, detected_at')
           .single();
         if (!error && created) {
           issueByKevaId.set(k.kevaId, created as any);
@@ -398,7 +471,7 @@ export async function runNedarimSync(
           amount: k.amount, detected_at: today, keva_id: k.kevaId, raw: k.raw,
           detail: `Nedarim keva #${k.kevaId}: monthly commitment finished (${k.chargesDone ?? '?'} charges completed) — renewal opportunity.`,
         })
-        .select('id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at')
+        .select('id, donor_id, keva_id, type, status, notify_count, last_notified_at, detected_at')
         .single();
       if (!error && created) {
         issueByKevaId.set(k.kevaId, created as any);
@@ -449,7 +522,7 @@ export async function runNedarimSync(
     interface Group { donor: DonorLite; issues: typeof openIssues; kevas: NedarimKeva[] }
     const groups = new Map<string, Group>();
     for (const [kevaId, issue] of Array.from(issueByKevaId.entries())) {
-      if (issue.type !== 'failed_payment') continue;
+      if (issue.type !== 'failed_payment' || issue.status !== 'open') continue;
       const k = kevaById.get(kevaId);
       if (!k || !kevaIsBouncing(k)) continue;
       const donor = donorById.get(issue.donor_id);
@@ -578,6 +651,7 @@ export async function runNedarimSync(
     kevas_active: summary.kevasActive,
     kevas_bouncing: summary.kevasBouncing,
     kevas_completed: summary.kevasCompleted,
+    payments_imported: summary.paymentsImported,
     new_bounces: summary.newBounces,
     recovered: summary.recovered,
     emails_sent: summary.emailsSent,

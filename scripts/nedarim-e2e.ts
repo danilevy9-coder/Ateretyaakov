@@ -69,6 +69,7 @@ async function main() {
     await db.from('donors').delete().in('id', donorIds);
   }
   await db.from('nedarim_keva').delete().in('keva_id', MOCK_KEVAS);
+  await db.from('nedarim_payments').delete().in('transaction_id', ['500001', '500002', '500003']);
   await db.from('nedarim_sync_runs').delete().eq('trigger', 'manual');
   const { count } = await db.from('nedarim_keva').select('*', { count: 'exact', head: true }).in('keva_id', MOCK_KEVAS);
   console.log('\ncleanup done, remaining mock kevas:', count);

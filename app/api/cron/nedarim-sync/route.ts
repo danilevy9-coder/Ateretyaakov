@@ -94,10 +94,12 @@ async function handle(req: NextRequest, body?: { report?: boolean }) {
       }
     }
 
-    return NextResponse.json(
-      { ...summary, keepalive, report: reportResult },
-      { status: summary.ok ? 200 : 500 }
-    );
+    // Handled sync failures (bad credentials, Nedarim API errors) return 200
+    // with ok:false — the run was executed and logged. Returning 5xx here
+    // trips Vercel's anomaly alerts as if the site were down. Real crashes
+    // still 500 via the catch below; sync health lives in /crm/nedarim and
+    // the weekly digest.
+    return NextResponse.json({ ...summary, keepalive, report: reportResult });
   } catch (e) {
     // Surface the failure in the response body — a blank 500 is undebuggable
     // from the Vercel cron log alone.

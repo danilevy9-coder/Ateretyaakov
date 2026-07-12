@@ -103,7 +103,13 @@ async function handle(req: NextRequest, body?: { report?: boolean }) {
     // from the Vercel cron log alone.
     console.error('[nedarim-sync]', e);
     return NextResponse.json(
-      { ok: false, keepalive, error: String(e), serviceKey: describeServiceKey() },
+      {
+        ok: false,
+        keepalive,
+        error: String(e),
+        serviceKey: describeServiceKey(),
+        deployment: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'unknown',
+      },
       { status: 500 }
     );
   }

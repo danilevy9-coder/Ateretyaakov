@@ -116,6 +116,18 @@ const ERROR_PATTERNS: { re: RegExp; en: string; he: string }[] = [
   { re: /קשר.*חברת|התקשר/, en: 'the card company asked to be contacted', he: 'חברת האשראי ביקשה ליצור קשר' },
 ];
 
+// "לא פעיל - אין יתרת תשלומים" = the order finished its committed number of
+// installments. That is NOT a payment failure — the donor completed what they
+// signed up for. It must never trigger a "problem with your payment" email;
+// it's a renewal opportunity surfaced in the weekly report instead.
+export type ErrorKind = 'card_failure' | 'completed';
+
+export function classifyError(errorText: string | null): ErrorKind | null {
+  const t = (errorText || '').trim();
+  if (!t) return null;
+  return /לא פעיל|אין יתרת/.test(t) ? 'completed' : 'card_failure';
+}
+
 export function friendlyErrorReason(errorText: string | null, language: 'en' | 'he'): string {
   const raw = (errorText || '').trim();
   if (!raw) return language === 'he' ? 'החיוב לא עבר' : 'the payment did not go through';
@@ -301,6 +313,15 @@ function mockKevas(mode: string): NedarimKeva[] {
       Itra: '', Success: '5', LastNum: '1111', CreationDate: '01/02/2026',
       NextDate: '01/07/2026', ErrorText: 'סירוב - נא לפנות לחברת האשראי',
       Groupe: 'Gemach', Comments: '', MasofId: '', Tokef: '0827', Enabled: '1',
+    },
+    {
+      // Finished its committed term — a renewal opportunity, NOT a bounce.
+      KevaId: '900004', ClientName: 'Moshe Green', Zeout: '',
+      Mail: 'moshe.test@example.com', Phone: '0541112222',
+      Adresse: '', City: '', Amount: '250', Currency: '1',
+      Itra: '0', Success: '24', LastNum: '5555', CreationDate: '01/06/2024',
+      NextDate: '', ErrorText: 'לא פעיל - אין יתרת תשלומים',
+      Groupe: 'General', Comments: '', MasofId: '', Tokef: '0327', Enabled: '1',
     },
   ];
   return base.map((r) => parseKevaRow(r as Record<string, unknown>));

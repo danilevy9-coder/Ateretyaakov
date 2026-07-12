@@ -17,6 +17,7 @@ interface BouncingRow {
   amount: number | null;
   currency: string;
   error_text: string | null;
+  error_kind: string | null;
   bouncing_since: string | null;
   email: string | null;
   phone: string | null;
@@ -51,7 +52,7 @@ export async function buildWeeklyNedarimReport(
 
   const [{ data: kevaRows }, { data: newIssues }, { data: resolvedIssues }, { data: sentLog }, { data: lastRuns }] =
     await Promise.all([
-      supabase.from('nedarim_keva').select('keva_id, client_name, amount, currency, error_text, bouncing_since, email, phone, enabled, tokef').limit(5000),
+      supabase.from('nedarim_keva').select('keva_id, client_name, amount, currency, error_text, error_kind, bouncing_since, email, phone, enabled, tokef').limit(5000),
       supabase.from('donor_issues').select('keva_id, detail, amount, detected_at').eq('type', 'failed_payment').not('keva_id', 'is', null).gte('detected_at', weekAgoDate).order('detected_at', { ascending: false }),
       supabase.from('donor_issues').select('keva_id, detail, amount, resolved_at').eq('type', 'failed_payment').eq('status', 'resolved').not('keva_id', 'is', null).gte('resolved_at', weekAgoDate),
       supabase.from('message_log').select('to_address, subject, status, created_at').eq('sent_by', 'nedarim-auto').gte('created_at', weekAgo).order('created_at', { ascending: false }),
@@ -61,7 +62,8 @@ export async function buildWeeklyNedarimReport(
   const kevas = (kevaRows ?? []) as BouncingRow[];
   const byKevaId = new Map(kevas.map((k) => [k.keva_id, k]));
   const active = kevas.filter((k) => k.enabled && !k.error_text);
-  const bouncing = kevas.filter((k) => k.enabled && k.error_text);
+  const bouncing = kevas.filter((k) => k.enabled && k.error_kind === 'card_failure');
+  const completedTerm = kevas.filter((k) => k.enabled && k.error_kind === 'completed');
 
   const sumByCur = (rows: BouncingRow[]) => {
     const acc: Record<string, number> = {};
@@ -93,6 +95,12 @@ export async function buildWeeklyNedarimReport(
         <div style="font-size:12px;color:#666;">Bouncing</div>
         <div style="font-size:22px;font-weight:bold;color:${bouncing.length ? '#c0392b' : '#1a7a3a'};">${bouncing.length}</div>
         <div style="font-size:13px;color:#444;">${sumByCur(bouncing)} / month at risk</div>
+      </td>
+      <td style="width:10px;"></td>
+      <td style="padding:12px;background:#fbf7ef;border-radius:8px;">
+        <div style="font-size:12px;color:#666;">Term completed</div>
+        <div style="font-size:22px;font-weight:bold;color:#8a6d1a;">${completedTerm.length}</div>
+        <div style="font-size:13px;color:#444;">${sumByCur(completedTerm)} / month to renew</div>
       </td>
       <td style="width:10px;"></td>
       <td style="padding:12px;background:#f4f7f4;border-radius:8px;">
@@ -144,6 +152,17 @@ export async function buildWeeklyNedarimReport(
     ])
   );
 
+  const completedTable = table(
+    ['Donor', 'Was giving', 'Contact'],
+    completedTerm
+      .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0))
+      .map((k) => [
+        esc(k.client_name),
+        fmtMoney(k.amount ?? 0, sym(k.currency)) + '/mo',
+        esc(k.email || k.phone || '—'),
+      ])
+  );
+
   const expiringTable = table(
     ['Donor', 'Monthly', 'Card expires', 'Contact'],
     expiring.map((k) => [
@@ -173,6 +192,7 @@ export async function buildWeeklyNedarimReport(
     ${section(`🙏 Needs your personal attention (${needsAttention.length})`, attentionTable)}
     ${section(`✅ Recovered this week (${resolvedIssues?.length ?? 0})`, recoveredTable)}
     ${section(`✉️ Automated recovery emails this week (${sentLog?.length ?? 0})`, outreachTable)}
+    ${section(`🔄 Finished their commitment — worth a renewal ask (${completedTerm.length})`, completedTable)}
     ${section(`⏳ Cards expiring within a month (${expiring.length})`, expiringTable)}
     <p style="color:#999;font-size:12px;margin-top:28px;">Sent automatically by the Ateret Yaakov CRM · <a href="${process.env.CRM_PUBLIC_URL || 'https://www.ateretyaakov.com'}/crm/nedarim" style="color:#999;">open the Nedarim dashboard</a></p>
   </div></body></html>`;

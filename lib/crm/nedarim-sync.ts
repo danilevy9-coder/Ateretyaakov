@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
+  classifyError,
   fetchAllKevas,
   fetchKevaDetail,
   friendlyErrorReason,
@@ -33,6 +34,7 @@ export interface SyncSummary {
   kevasTotal: number;
   kevasActive: number;
   kevasBouncing: number;
+  kevasCompleted: number; // finished their committed term — not failures
   newBounces: number;
   recovered: number;
   emailsSent: number;
@@ -81,8 +83,14 @@ async function fetchAllRows<T>(
 
 const hasHebrew = (s: string | null) => /[֐-׿]/.test(s || '');
 
+// Bouncing = a genuine card failure on an active order. Orders whose error is
+// "completed its term" are a different bucket — never auto-emailed.
 function kevaIsBouncing(k: NedarimKeva): boolean {
-  return k.enabled && Boolean(k.errorText);
+  return k.enabled && classifyError(k.errorText) === 'card_failure';
+}
+
+function kevaIsCompleted(k: NedarimKeva): boolean {
+  return k.enabled && classifyError(k.errorText) === 'completed';
 }
 
 // ── Donor matching ───────────────────────────────────────────────────
@@ -135,11 +143,12 @@ export async function runNedarimSync(
   const runId = runRow.id as string;
 
   const summary: SyncSummary = {
-    runId, ok: false, kevasTotal: 0, kevasActive: 0, kevasBouncing: 0,
+    runId, ok: false, kevasTotal: 0, kevasActive: 0, kevasBouncing: 0, kevasCompleted: 0,
     newBounces: 0, recovered: 0, emailsSent: 0, emailsFailed: 0, emailsSkipped: 0,
   };
   const report: Record<string, unknown[]> = {
     newBounces: [], recovered: [], emailsSent: [], needsAttention: [], expiringCards: [],
+    completedTerm: [],
   };
 
   try {
@@ -149,6 +158,14 @@ export async function runNedarimSync(
     summary.kevasActive = kevas.filter((k) => k.enabled).length;
     const bouncing = kevas.filter(kevaIsBouncing);
     summary.kevasBouncing = bouncing.length;
+    const completed = kevas.filter(kevaIsCompleted);
+    summary.kevasCompleted = completed.length;
+    for (const k of completed) {
+      report.completedTerm.push({
+        kevaId: k.kevaId, name: k.clientName, amount: k.amount, currency: k.currency,
+        email: k.email, phone: k.phone,
+      });
+    }
 
     // 2 ── existing state ---------------------------------------------------
     const existingKevas = await fetchAllRows<{
@@ -231,6 +248,7 @@ export async function runNedarimSync(
         nedarim_created: k.createdDate,
         next_charge: k.nextDate,
         error_text: k.errorText,
+        error_kind: classifyError(k.errorText),
         enabled: k.enabled,
         bouncing_since: nowBouncing ? (wasBouncing ? prior?.bouncing_since ?? today : today) : null,
         groupe: k.groupe,
@@ -249,17 +267,44 @@ export async function runNedarimSync(
 
     // 5 ── issue lifecycle ---------------------------------------------------
     const openIssues = await fetchAllRows<{
-      id: string; donor_id: string; keva_id: string | null;
+      id: string; donor_id: string; keva_id: string | null; type: string;
       notify_count: number; last_notified_at: string | null; detected_at: string;
-    }>(supabase, 'donor_issues', 'id, donor_id, keva_id, notify_count, last_notified_at, detected_at',
-      (q) => q.eq('type', 'failed_payment').eq('status', 'open'));
+    }>(supabase, 'donor_issues', 'id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at',
+      (q) => q.in('type', ['failed_payment', 'lapsed']).eq('status', 'open'));
 
     const issueByKevaId = new Map(openIssues.filter((i) => i.keva_id).map((i) => [i.keva_id!, i]));
     const legacyIssueByDonor = new Map(
-      openIssues.filter((i) => !i.keva_id).map((i) => [i.donor_id, i])
+      openIssues.filter((i) => !i.keva_id && i.type === 'failed_payment').map((i) => [i.donor_id, i])
     );
 
     const kevaById = new Map(kevas.map((k) => [k.kevaId, k]));
+
+    // 5-pre. Re-type any failed_payment issue whose order actually COMPLETED
+    // its term (incl. ones created before this distinction existed): it
+    // becomes a "lapsed" issue — renewal outreach is a human decision, and
+    // the donor must never get a "problem with your payment" email.
+    const completedByKevaId = new Set(completed.map((k) => k.kevaId));
+    const bouncingDonorIds = new Set(
+      bouncing.map((k) => donorIdByKeva.get(k.kevaId)).filter(Boolean)
+    );
+    for (const issue of openIssues) {
+      if (issue.type !== 'failed_payment') continue;
+      if (!issue.keva_id || !completedByKevaId.has(issue.keva_id)) continue;
+      const k = kevaById.get(issue.keva_id)!;
+      await supabase.from('donor_issues').update({
+        type: 'lapsed',
+        detail: `Nedarim keva #${k.kevaId}: monthly commitment finished (${k.chargesDone ?? '?'} charges completed) — renewal opportunity.`,
+        amount: k.amount,
+      }).eq('id', issue.id);
+      issue.type = 'lapsed';
+      const donor = donorById.get(issue.donor_id);
+      // Keep the tag if another of their orders is genuinely card-failing.
+      if (donor?.tags?.includes('bouncing') && !bouncingDonorIds.has(donor.id)) {
+        await supabase.from('donors').update({
+          tags: donor.tags.filter((t) => t !== 'bouncing'),
+        }).eq('id', donor.id);
+      }
+    }
 
     // 5a. new bounces → open (or adopt) an issue
     let detailBudget = DETAIL_LOOKUPS_PER_RUN;
@@ -304,7 +349,7 @@ export async function runNedarimSync(
             donor_id: donorId, type: 'failed_payment', status: 'open',
             amount: k.amount, detail, detected_at: today, keva_id: k.kevaId, raw: k.raw,
           })
-          .select('id, donor_id, keva_id, notify_count, last_notified_at, detected_at')
+          .select('id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at')
           .single();
         if (!error && created) {
           issueByKevaId.set(k.kevaId, created as any);
@@ -323,6 +368,29 @@ export async function runNedarimSync(
           kevaId: k.kevaId, name: k.clientName, amount: k.amount, currency: k.currency,
           error: k.errorText, reason: 'No matching donor / no contact info',
         });
+      }
+    }
+
+    // 5a-bis. completed-term orders → open a "lapsed" issue (renewal
+    // follow-up in the Issues page). Never auto-emailed.
+    for (const k of completed) {
+      if (issueByKevaId.has(k.kevaId)) continue;
+      const donorId = donorIdByKeva.get(k.kevaId) ?? null;
+      if (!donorId) continue;
+      const { data: created, error } = await supabase.from('donor_issues')
+        .insert({
+          donor_id: donorId, type: 'lapsed', status: 'open',
+          amount: k.amount, detected_at: today, keva_id: k.kevaId, raw: k.raw,
+          detail: `Nedarim keva #${k.kevaId}: monthly commitment finished (${k.chargesDone ?? '?'} charges completed) — renewal opportunity.`,
+        })
+        .select('id, donor_id, keva_id, type, notify_count, last_notified_at, detected_at')
+        .single();
+      if (!error && created) {
+        issueByKevaId.set(k.kevaId, created as any);
+        const donor = donorById.get(donorId);
+        if (donor && donor.status === 'active') {
+          await supabase.from('donors').update({ status: 'lapsed' }).eq('id', donorId);
+        }
       }
     }
 
@@ -361,37 +429,54 @@ export async function runNedarimSync(
       if (!tmplByLang.has(t.language)) tmplByLang.set(t.language, t);
     }
 
-    const now = Date.now();
+    // Group per donor — someone with several bouncing orders (it happens; one
+    // donor had six) gets ONE email covering the combined monthly amount.
+    interface Group { donor: DonorLite; issues: typeof openIssues; kevas: NedarimKeva[] }
+    const groups = new Map<string, Group>();
     for (const [kevaId, issue] of Array.from(issueByKevaId.entries())) {
+      if (issue.type !== 'failed_payment') continue;
       const k = kevaById.get(kevaId);
       if (!k || !kevaIsBouncing(k)) continue;
       const donor = donorById.get(issue.donor_id);
       if (!donor) continue;
+      const g = groups.get(donor.id) ?? { donor, issues: [], kevas: [] };
+      g.issues.push(issue);
+      g.kevas.push(k);
+      groups.set(donor.id, g);
+    }
+
+    const now = Date.now();
+    for (const { donor, issues, kevas: donorKevas } of Array.from(groups.values())) {
+      // Use the largest order for error/card details; sum amounts per donor.
+      const main = donorKevas.reduce((a, b) => ((b.amount ?? 0) > (a.amount ?? 0) ? b : a));
+      const totalAmount = donorKevas.reduce((s, k) => s + (k.amount ?? 0), 0);
+      const names = main.clientName;
 
       if (!donor.email) {
         report.needsAttention.push({
-          kevaId, name: k.clientName, amount: k.amount, currency: k.currency,
-          error: k.errorText, phone: k.phone, reason: 'No email — call or WhatsApp manually',
+          kevaId: main.kevaId, name: names, amount: totalAmount, currency: main.currency,
+          error: main.errorText, phone: main.phone, reason: 'No email — call or WhatsApp manually',
         });
         continue;
       }
       if (donor.unsubscribed) {
         summary.emailsSkipped++;
         report.needsAttention.push({
-          kevaId, name: k.clientName, amount: k.amount, currency: k.currency,
-          error: k.errorText, reason: 'Unsubscribed from email — needs manual contact',
+          kevaId: main.kevaId, name: names, amount: totalAmount, currency: main.currency,
+          error: main.errorText, reason: 'Unsubscribed from email — needs manual contact',
         });
         continue;
       }
-      if (issue.notify_count >= MAX_NOTICES) {
+      const notifyCount = Math.max(...issues.map((i) => i.notify_count));
+      const lastMs = Math.max(0, ...issues.map((i) => (i.last_notified_at ? new Date(i.last_notified_at).getTime() : 0)));
+      if (notifyCount >= MAX_NOTICES) {
         report.needsAttention.push({
-          kevaId, name: k.clientName, amount: k.amount, currency: k.currency,
-          error: k.errorText, reason: `${issue.notify_count} emails sent, still bouncing — needs a call`,
+          kevaId: main.kevaId, name: names, amount: totalAmount, currency: main.currency,
+          error: main.errorText, reason: `${notifyCount} emails sent, still bouncing — needs a call`,
         });
         continue;
       }
-      const lastMs = issue.last_notified_at ? new Date(issue.last_notified_at).getTime() : 0;
-      const due = issue.notify_count === 0 || now - lastMs >= REMINDER_DAYS * 86400_000;
+      const due = notifyCount === 0 || now - lastMs >= REMINDER_DAYS * 86400_000;
       if (!due) continue;
 
       const lang = donor.preferred_language === 'he' ? 'he' : 'en';
@@ -399,19 +484,19 @@ export async function runNedarimSync(
       if (!tmpl) continue;
 
       const vars = {
-        first_name: donor.first_name || (k.clientName || '').split(/\s+/)[0] || 'Friend',
-        full_name: donor.full_name || k.clientName || '',
-        monthly_amount: (k.amount ?? donor.monthly_amount ?? 0).toLocaleString('en-US'),
-        amount: (k.amount ?? 0).toLocaleString('en-US'),
+        first_name: donor.first_name || (names || '').split(/\s+/)[0] || 'Friend',
+        full_name: donor.full_name || names || '',
+        monthly_amount: totalAmount.toLocaleString('en-US'),
+        amount: totalAmount.toLocaleString('en-US'),
         balance: '',
-        currency: currencySymbol(k.currency),
+        currency: currencySymbol(main.currency),
         org: ORG_NAME,
-        error_reason: friendlyErrorReason(k.errorText, lang),
-        card_last4: k.lastNum ?? '',
+        error_reason: friendlyErrorReason(main.errorText, lang),
+        card_last4: main.lastNum ?? '',
       };
       let subject = renderTemplate(tmpl.subject || `Payment issue — ${ORG_NAME}`, vars);
       const body = renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL);
-      if (issue.notify_count > 0) {
+      if (notifyCount > 0) {
         subject = (lang === 'he' ? 'תזכורת: ' : 'Reminder: ') + subject;
       }
 
@@ -419,7 +504,7 @@ export async function runNedarimSync(
       // send nothing. Set NEDARIM_DRY_RUN=1 in the environment.
       if (process.env.NEDARIM_DRY_RUN) {
         summary.emailsSkipped++;
-        report.emailsSent.push({ to: donor.email, name: k.clientName, kevaId, notice: issue.notify_count + 1, dryRun: true });
+        report.emailsSent.push({ to: donor.email, name: names, kevaId: main.kevaId, notice: notifyCount + 1, dryRun: true });
         continue;
       }
 
@@ -434,11 +519,13 @@ export async function runNedarimSync(
         providerId = r.id;
         summary.emailsSent++;
         report.emailsSent.push({
-          to: donor.email, name: k.clientName, kevaId, notice: issue.notify_count + 1,
+          to: donor.email, name: names, kevaId: main.kevaId, orders: donorKevas.length, notice: notifyCount + 1,
         });
+        // Stamp every one of the donor's bouncing issues so cadence stays in
+        // step across all their orders.
         await supabase.from('donor_issues')
-          .update({ last_notified_at: new Date().toISOString(), notify_count: issue.notify_count + 1 })
-          .eq('id', issue.id);
+          .update({ last_notified_at: new Date().toISOString(), notify_count: notifyCount + 1 })
+          .in('id', issues.map((i) => i.id));
       } catch (e) {
         status = 'failed';
         errMsg = String(e);
@@ -475,6 +562,7 @@ export async function runNedarimSync(
     kevas_total: summary.kevasTotal,
     kevas_active: summary.kevasActive,
     kevas_bouncing: summary.kevasBouncing,
+    kevas_completed: summary.kevasCompleted,
     new_bounces: summary.newBounces,
     recovered: summary.recovered,
     emails_sent: summary.emailsSent,

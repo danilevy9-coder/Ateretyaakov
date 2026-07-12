@@ -13,6 +13,7 @@ interface KevaRow {
   amount: number | null;
   currency: string;
   error_text: string | null;
+  error_kind: string | null;
   bouncing_since: string | null;
   next_charge: string | null;
   last_num: string | null;
@@ -102,7 +103,8 @@ export default function NedarimClient() {
   };
 
   const active = kevas.filter((k) => k.enabled && !k.error_text);
-  const bouncing = kevas.filter((k) => k.enabled && k.error_text);
+  const bouncing = kevas.filter((k) => k.enabled && k.error_kind === 'card_failure');
+  const completed = kevas.filter((k) => k.enabled && k.error_kind === 'completed');
   const sumMonthly = (rows: KevaRow[], cur: string) =>
     rows.filter((r) => (r.currency || 'ILS') === cur).reduce((a, r) => a + (r.amount ?? 0), 0);
   const monthlyStr = (rows: KevaRow[]) => {
@@ -156,7 +158,7 @@ export default function NedarimClient() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <p className="text-slate-400 text-xs uppercase tracking-wide">Active orders</p>
           <p className="text-2xl font-bold mt-1 text-emerald-300">{active.length}</p>
@@ -166,6 +168,11 @@ export default function NedarimClient() {
           <p className="text-slate-400 text-xs uppercase tracking-wide">Bouncing</p>
           <p className={`text-2xl font-bold mt-1 ${bouncing.length ? 'text-red-300' : 'text-emerald-300'}`}>{bouncing.length}</p>
           <p className="text-slate-400 text-xs mt-1">{monthlyStr(bouncing)}/mo at risk</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-slate-400 text-xs uppercase tracking-wide">Term completed</p>
+          <p className="text-2xl font-bold mt-1 text-amber-300">{completed.length}</p>
+          <p className="text-slate-400 text-xs mt-1">{monthlyStr(completed)}/mo to renew</p>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <p className="text-slate-400 text-xs uppercase tracking-wide">Last sync</p>
@@ -222,6 +229,42 @@ export default function NedarimClient() {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Completed-term table */}
+      <h2 className="text-sm font-semibold text-slate-300 mb-3">
+        Finished their commitment — renewal opportunities ({completed.length})
+      </h2>
+      <p className="text-slate-500 text-xs mb-3">
+        These donors completed every payment they signed up for. They are never auto-emailed —
+        reach out personally or via a bulk renewal email from the Issues page (type “lapsed”).
+      </p>
+      <div className="rounded-xl border border-white/10 overflow-x-auto mb-8">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-slate-400 uppercase tracking-wide border-b border-white/10">
+              <th className="px-4 py-3">Donor</th>
+              <th className="px-4 py-3">Was giving</th>
+              <th className="px-4 py-3">Contact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completed.length === 0 && (
+              <tr><td colSpan={3} className="px-4 py-6 text-slate-500 text-center">
+                {loading ? 'Loading…' : 'None'}
+              </td></tr>
+            )}
+            {completed.map((k) => (
+              <tr key={k.keva_id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                <td className="px-4 py-3 font-medium text-white">{k.client_name || '—'}
+                  <span className="block text-xs text-slate-500">#{k.keva_id}</span>
+                </td>
+                <td className="px-4 py-3 text-amber-300 font-semibold">{fmtMoney(k.amount ?? 0, currencySymbol(k.currency))}/mo</td>
+                <td className="px-4 py-3 text-slate-300">{k.email || k.phone || '—'}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

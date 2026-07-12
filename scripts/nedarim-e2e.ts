@@ -11,7 +11,7 @@ const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const EMAIL = process.env.E2E_EMAIL!;
 const PASSWORD = process.env.E2E_PASSWORD!;
 
-const MOCK_KEVAS = ['900001', '900002', '900003'];
+const MOCK_KEVAS = ['900001', '900002', '900003', '900004'];
 
 async function main() {
   const authClient = createClient(URL, ANON, { auth: { persistSession: false } });

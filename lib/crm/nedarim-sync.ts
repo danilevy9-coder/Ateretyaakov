@@ -134,6 +134,21 @@ export async function runNedarimSync(
   const supabase = client ?? createAdminClient();
   const today = todayJerusalem();
 
+  // Only one sync at a time — overlapping runs race on issue creation.
+  const { data: running } = await supabase
+    .from('nedarim_sync_runs')
+    .select('id')
+    .is('finished_at', null)
+    .gte('started_at', new Date(Date.now() - 15 * 60_000).toISOString())
+    .limit(1);
+  if (running?.length) {
+    return {
+      runId: null, ok: false, error: 'A sync is already running — try again in a minute.',
+      kevasTotal: 0, kevasActive: 0, kevasBouncing: 0, kevasCompleted: 0,
+      newBounces: 0, recovered: 0, emailsSent: 0, emailsFailed: 0, emailsSkipped: 0,
+    };
+  }
+
   const { data: runRow, error: runErr } = await supabase
     .from('nedarim_sync_runs')
     .insert({ trigger })

@@ -20,6 +20,24 @@ async function isAuthorized(req: NextRequest): Promise<{ ok: boolean; manual: bo
   return { ok: Boolean(user), manual: true };
 }
 
+// Describes the FORMAT of the configured service key (never its value) so a
+// misconfigured env var is diagnosable from the error response alone.
+function describeServiceKey(): string {
+  const k = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!k) return 'missing';
+  if (k.startsWith('sb_secret_')) return `new-style secret key (len ${k.length}) — should work`;
+  if (k.startsWith('sb_publishable_')) return 'sb_publishable_… — WRONG: that is the public key, not the service key';
+  if (k.startsWith('eyJ')) {
+    try {
+      const payload = JSON.parse(Buffer.from(k.split('.')[1], 'base64').toString());
+      return `legacy JWT with role="${payload.role}"${payload.role === 'service_role' ? ' — should work' : ' — WRONG: needs role service_role'}`;
+    } catch {
+      return 'JWT-like but undecodable — likely truncated when pasted';
+    }
+  }
+  return `unrecognized format (len ${k.length}) — likely a placeholder or partial paste`;
+}
+
 function isReportDay(): boolean {
   const weekday = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
@@ -84,7 +102,10 @@ async function handle(req: NextRequest, body?: { report?: boolean }) {
     // Surface the failure in the response body — a blank 500 is undebuggable
     // from the Vercel cron log alone.
     console.error('[nedarim-sync]', e);
-    return NextResponse.json({ ok: false, keepalive, error: String(e) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, keepalive, error: String(e), serviceKey: describeServiceKey() },
+      { status: 500 }
+    );
   }
 }
 

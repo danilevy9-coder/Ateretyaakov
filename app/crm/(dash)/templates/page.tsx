@@ -11,8 +11,11 @@ const CATEGORIES = ['general', 'reminder', 'thank_you', 'unfulfilled_pledge', 'l
 const SAMPLE: Record<string, string> = {
   first_name: 'Yaakov', full_name: 'Yaakov Cohen', amount: '180', balance: '250',
   monthly_amount: '180', currency: '₪', org: 'Yeshiva Ateret Yaakov',
+  error_reason: 'the card has expired', card_last4: '4321',
 };
-const VARS = ['first_name', 'full_name', 'monthly_amount', 'balance', 'amount', 'currency', 'org'];
+// error_reason + card_last4 are filled in by the automated Nedarim sync
+// (failed_payment emails); they render empty when sent manually.
+const VARS = ['first_name', 'full_name', 'monthly_amount', 'balance', 'amount', 'currency', 'org', 'error_reason', 'card_last4'];
 const blank: Partial<MessageTemplate> = {
   name: '', channel: 'email', language: 'en', category: 'general', subject: '', body: '', is_default: false,
 };

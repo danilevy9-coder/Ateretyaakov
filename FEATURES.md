@@ -81,13 +81,28 @@ Supabase (Postgres, Auth, RLS) + Resend (email) + OpenAI/Anthropic (AI import).
 - **Contact parent** by email or WhatsApp.
 - Per-student **notes**.
 
-## 9. Data model (Supabase)
+## 9. Nedarim Plus automation (`/crm/nedarim`)
+- **Daily sync** (Vercel cron) pulls every credit-card standing order via the Nedarim Plus management
+  API (`GetKevaJson`), mirrors them in `nedarim_keva`, and matches/creates donors by email → phone → ID.
+- **Bounce detection**: orders with a decline error open a `failed_payment` issue automatically, enriched
+  with charge history (`GetKevaId`) — decline reason, card last-4/expiry, declined-attempt count.
+- **Automated recovery emails**: bouncing donors get the *Payment issue* template in their language with
+  `{{error_reason}}` + `{{card_last4}}`; staged cadence (immediate → reminder every 7 days → max 3),
+  honors unsubscribes, failed sends retry next run. All logged to `message_log` (`sent_by: nedarim-auto`).
+- **Auto-recovery**: when a charge clears again the issue resolves itself and the donor returns to active.
+- **Weekly digest email** (Sunday) to the admin: money at risk, new bounces, recoveries, outreach log,
+  donors needing a personal call, cards expiring within a month.
+- **Dashboard** at `/crm/nedarim`: live stats, bouncing table with outreach status, sync history,
+  Sync-now / send-report-now buttons. Mockable end-to-end via `NEDARIM_MOCK=1|2`.
+
+## 10. Data model (Supabase)
 - `donors`, `donor_pledges`, `donor_contributions`, `donor_issues`, `donor_notes`
 - `message_templates`, `message_log`, `import_batches`
 - `students`, `student_payments`, `student_notes`
+- `nedarim_keva` (standing-order mirror), `nedarim_sync_runs` (sync audit + report payloads)
 - Generated `balance` column (amount owed, never negative); dedupe key; updated-at triggers; `crm_dashboard_stats()` aggregate function.
 
-## 10. Languages
+## 11. Languages
 - **Hebrew + English** throughout outreach (templates, RTL email rendering, per-recipient language on bulk send). Donor names stored in both EN and HE.
 
 ---

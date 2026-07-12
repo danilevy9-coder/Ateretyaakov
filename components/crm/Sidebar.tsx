@@ -9,6 +9,7 @@ const links = [
   { href: '/crm', label: 'Dashboard', icon: '📊' },
   { href: '/crm/donors', label: 'Donors', icon: '🤝' },
   { href: '/crm/issues', label: 'Issues', icon: '⚠️' },
+  { href: '/crm/nedarim', label: 'Nedarim Plus', icon: '💳' },
   { href: '/crm/import', label: 'Import', icon: '📥' },
   { href: '/crm/templates', label: 'Templates', icon: '✉️' },
   { href: '/crm/students', label: 'Yeshiva', icon: '🎓' },

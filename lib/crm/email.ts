@@ -32,6 +32,24 @@ export function bodyToHtml(body: string, language?: 'en' | 'he', unsubscribeUrl?
   </div></body></html>`;
 }
 
+// For system emails (e.g. the weekly Nedarim digest) that build their own HTML.
+export async function sendHtmlEmail(msg: { to: string; subject: string; html: string }): Promise<{ id: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not set.');
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set (must be a verified domain).');
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.emails.send({
+    from,
+    to: msg.to,
+    subject: msg.subject,
+    html: msg.html,
+    replyTo: process.env.RESEND_REPLY_TO || undefined,
+  });
+  if (error) throw new Error(error.message || 'Resend send failed');
+  return { id: data?.id ?? '' };
+}
+
 export async function sendEmail(msg: OutgoingEmail): Promise<{ id: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('RESEND_API_KEY is not set.');

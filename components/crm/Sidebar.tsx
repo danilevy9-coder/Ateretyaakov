@@ -14,6 +14,7 @@ const links = [
   { href: '/crm/import', label: 'Import', icon: '📥' },
   { href: '/crm/templates', label: 'Templates', icon: '✉️' },
   { href: '/crm/students', label: 'Yeshiva', icon: '🎓' },
+  { href: '/crm/help', label: 'Help', icon: '❓' },
 ];
 
 export default function Sidebar({ email }: { email: string }) {

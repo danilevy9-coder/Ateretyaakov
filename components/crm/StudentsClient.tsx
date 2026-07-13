@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import HelpBox from './HelpBox';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
 import type { Student } from '@/lib/crm/types';
 import StudentDrawer from './StudentDrawer';
@@ -68,6 +69,12 @@ export default function StudentsClient({ initialStatus }: { initialStatus?: stri
           <a href="/crm/import" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">📥 Import</a>
         </div>
       </div>
+
+      <HelpBox>
+        <p>Yeshiva enrollment and tuition. <b>+ Add student</b> for one at a time, or 📥 Import an Excel list.</p>
+        <p>Click a student to open their card — parents&apos; contacts, monthly tuition, payment record per month
+        (paid / partial / unpaid / waived), and notes. Statuses: applicant → enrolled → alumni / withdrawn.</p>
+      </HelpBox>
 
       <div className="flex flex-wrap gap-2 mb-4">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search student or parent…"

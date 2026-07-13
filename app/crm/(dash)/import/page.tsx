@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
+import HelpBox from '@/components/crm/HelpBox';
 import { DONOR_FIELDS, STUDENT_FIELDS } from '@/lib/crm/types';
 
 type Kind = 'donors' | 'students';
@@ -175,6 +176,14 @@ export default function ImportPage() {
       <p className="text-slate-400 text-sm mb-6">
         Upload an Excel or CSV file — the AI reads your columns and sorts them automatically.
       </p>
+
+      <HelpBox>
+        <p><b>Three steps:</b> ① choose what you&apos;re importing (donors / issues / students) and upload any Excel or CSV —
+        exact column names don&apos;t matter · ② the AI proposes which column means what — check and correct it · ③ Import.</p>
+        <p><b>No duplicates:</b> rows are matched to existing donors by email → phone → ID, and update them instead of adding twice.</p>
+        <p><b>Note:</b> Nedarim Plus data (standing orders, bounces, payments) now arrives automatically every day — you no
+        longer upload bounce files. Use this page for campaign lists and student enrollment.</p>
+      </HelpBox>
 
       {/* Mode selector */}
       <div className="flex flex-wrap gap-2 mb-6">

@@ -8,6 +8,7 @@ import DonorDrawer from './DonorDrawer';
 import ContactModal from './ContactModal';
 import BulkContactModal from './BulkContactModal';
 import { CategoryChip, type Category } from './CategoriesClient';
+import HelpBox from './HelpBox';
 
 const PAGE_SIZE = 50;
 
@@ -257,6 +258,23 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <a href="/crm/import" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">📥 Import</a>
         </div>
       </div>
+
+      <HelpBox>
+        {onlyIssues ? (
+          <>
+            <p>Donors that need attention, by problem type: <b>failed payment</b> (card bounced — handled automatically by the
+            <a href="/crm/nedarim" className="underline"> Nedarim page</a>), <b>lapsed</b> (stopped giving / finished their commitment),
+            <b> unfulfilled pledge</b>, and <b>manual flags</b> you set yourself.</p>
+            <p>Click a name for details; resolve an issue there when it&apos;s handled. Select rows with checkboxes to email many at once.</p>
+          </>
+        ) : (
+          <>
+            <p><b>Search</b> by name/email/phone · <b>filter</b> by segment, status, category or issue · click a column header to <b>sort</b> · click a <b>name</b> to open the full donor card (edit details, categories, notes, issues, language).</p>
+            <p><b>Do things in bulk:</b> tick checkboxes (or &quot;Select all matching&quot; after filtering) → the amber bar lets you email everyone selected or assign/remove a 🏷 category.</p>
+            <p><b>Export CSV</b> downloads the current selection (or the whole filtered list). Language EN/HE on each donor controls which language their emails lead with.</p>
+          </>
+        )}
+      </HelpBox>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">

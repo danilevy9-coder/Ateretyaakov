@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
+import HelpBox from '@/components/crm/HelpBox';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,14 @@ export default async function Dashboard() {
   return (
     <div className="p-6 md:p-8 max-w-6xl">
       <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
-      <p className="text-slate-400 text-sm mb-8">Overview of donors, issues and the yeshiva.</p>
+      <p className="text-slate-400 text-sm mb-4">Overview of donors, issues and the yeshiva.</p>
+
+      <HelpBox>
+        <p>Every card is clickable and jumps to the filtered list behind the number.</p>
+        <p><b>Failed payments</b> are managed automatically by the <a href="/crm/nedarim" className="underline">Nedarim Plus</a> page —
+        bouncing donors are emailed for you; check there (or your Sunday report email) to see who needs a personal call.</p>
+        <p>New to this system? Start with the <a href="/crm/help" className="underline">❓ Help page</a> — it explains everything in plain language.</p>
+      </HelpBox>
 
       {error && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 mb-8">

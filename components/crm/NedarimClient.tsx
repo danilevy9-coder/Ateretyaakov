@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol, waLink } from '@/lib/crm/util';
+import HelpBox from './HelpBox';
 
 // ── Recovery workbench ────────────────────────────────────────────────
 // One donor per row, grouped across all their standing orders, sorted by
@@ -302,6 +303,19 @@ export default function NedarimClient() {
         {workRows.length} donors bouncing · {fmtMoney(sumMonthly(workRows), currencySymbol('ILS'))}/mo at risk ·
         last sync {lastRun ? dt(lastRun.started_at) : 'never'}{lastRun?.ok === false ? ' (failed)' : ''}
       </p>
+
+      <HelpBox>
+        <p>This page recovers failed monthly donations <b>automatically</b>. Every morning it checks Nedarim Plus
+        (read-only — it can never change or charge anything there), emails donors whose cards failed
+        (bilingual, up to 3 times, a week apart), and closes everything by itself when the payment recovers.</p>
+        <p><b>The tabs = what needs doing:</b> 🆕 New (just detected) · ✉️ Emailing (automation working) ·
+        📞 <b>Call these — your to-do list</b> (email can&apos;t reach them or was ignored 3×) · ⏸️ Left out (you excluded them) ·
+        ✅ Recovered · 🔄 Renewals (finished their commitment — never nagged, worth a personal ask).</p>
+        <p><b>Row buttons:</b> WhatsApp opens a pre-filled message · 📞 Called logs your call · ⏸ Leave out stops all automation
+        for them · ✓ Resolve closes it · ✎ Note saves a note. <b>Click a donor&apos;s name</b> for their full history.</p>
+        <p><b>Lifetime given</b> = their real payment history from Nedarim — prioritize big long-time givers for calls.
+        The Sunday email report summarizes all of this, including who opened the emails and who paid.</p>
+      </HelpBox>
 
       {actionMsg && (
         <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 mb-5 text-sm text-slate-200">{actionMsg}</div>

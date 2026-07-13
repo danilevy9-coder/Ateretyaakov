@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import HelpBox from '@/components/crm/HelpBox';
 import { renderTemplate } from '@/lib/crm/util';
 import type { MessageTemplate } from '@/lib/crm/types';
 
@@ -85,9 +86,15 @@ export default function TemplatesPage() {
         <button onClick={() => setEditing({ ...blank })} className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">+ New template</button>
       </div>
 
-      <p className="text-xs text-slate-500 mb-4">
-        Variables you can use: <code className="text-amber-300">{'{{first_name}} {{full_name}} {{amount}} {{balance}} {{monthly_amount}} {{currency}} {{org}}'}</code>
-      </p>
+      <HelpBox>
+        <p>These are the messages the CRM sends — each exists in <b>English and Hebrew</b> (donors get their own language).
+        The <b>&quot;Payment issue&quot;</b> pair is what bouncing donors receive automatically from the Nedarim page — both
+        languages combined in one email, donor&apos;s language on top.</p>
+        <p><b>Variables</b> in <code>{'{{curly}}'}</code> are filled per donor at send time — click the chips in the editor to
+        insert them. <code>{'{{error_reason}}'}</code> and <code>{'{{card_last4}}'}</code> only fill in automated payment emails.
+        <code>[DONATE LINK]</code> becomes the Nedarim Plus payment page automatically.</p>
+        <p>Edit wording freely — the live preview shows exactly how it reads. Changes take effect from the next email sent.</p>
+      </HelpBox>
 
       {error && <p className="text-red-300 text-sm mb-4">{error}</p>}
       {loading ? <p className="text-slate-500">Loading…</p> : (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import HelpBox from './HelpBox';
 
 export interface Category { id: string; name: string; color: string }
 
@@ -82,6 +83,14 @@ export default function CategoriesClient() {
         Create your own donor labels — then assign them from the Donors grid (select donors → assign)
         or inside a donor&apos;s card. Filter the grid by category any time.
       </p>
+
+      <HelpBox>
+        <p><b>Create</b> a category below (name + color). <b>Assign it</b> two ways: open any donor&apos;s card and click the
+        chip, or select many donors in the Donors grid and use the 🏷 control in the amber bar.</p>
+        <p><b>Use it:</b> the Donors grid has an &quot;All categories&quot; filter — combine with other filters, then bulk-email or
+        export exactly that group. Renaming or recoloring updates everywhere instantly; deleting removes the label
+        from all donors (the donors themselves are untouched).</p>
+      </HelpBox>
 
       {/* Add new */}
       <div className="flex flex-wrap items-center gap-2 mb-2">

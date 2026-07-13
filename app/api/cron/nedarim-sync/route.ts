@@ -165,7 +165,7 @@ async function sendTestPaymentEmail(to: string) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { report?: boolean; testEmail?: string } | undefined;
+  let body: { report?: boolean; testEmail?: string; enableTracking?: boolean } | undefined;
   try {
     body = await req.json();
   } catch { /* empty body is fine */ }
@@ -176,6 +176,29 @@ export async function POST(req: NextRequest) {
     try {
       const sent = await sendTestPaymentEmail(body.testEmail);
       return NextResponse.json({ ok: true, testEmailSentTo: body.testEmail, languages: sent });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    }
+  }
+
+  // One-time setup helper: turn on Resend open/click tracking for the domain
+  // so 'opened' engagement events are recorded.
+  if (body?.enableTracking) {
+    const auth = await isAuthorized(req);
+    if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+      const key = process.env.RESEND_API_KEY!;
+      const domains = (await (await fetch('https://api.resend.com/domains', {
+        headers: { Authorization: `Bearer ${key}` },
+      })).json()) as { data?: { id: string; name: string }[] };
+      const domain = domains.data?.find((d) => d.name === 'ateretyaakov.com');
+      if (!domain) return NextResponse.json({ ok: false, error: 'domain not found in Resend' }, { status: 404 });
+      const res = await fetch(`https://api.resend.com/domains/${domain.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ open_tracking: true, click_tracking: true }),
+      });
+      return NextResponse.json({ ok: res.ok, tracking: res.ok ? 'enabled' : await res.text() });
     } catch (e) {
       return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
     }

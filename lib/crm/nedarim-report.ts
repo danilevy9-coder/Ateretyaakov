@@ -54,8 +54,8 @@ export async function buildWeeklyNedarimReport(
     await Promise.all([
       supabase.from('nedarim_keva').select('keva_id, client_name, amount, currency, error_text, error_kind, bouncing_since, email, phone, enabled, tokef').limit(5000),
       supabase.from('donor_issues').select('keva_id, detail, amount, detected_at').eq('type', 'failed_payment').not('keva_id', 'is', null).gte('detected_at', weekAgoDate).order('detected_at', { ascending: false }),
-      supabase.from('donor_issues').select('keva_id, detail, amount, resolved_at').eq('type', 'failed_payment').eq('status', 'resolved').not('keva_id', 'is', null).gte('resolved_at', weekAgoDate),
-      supabase.from('message_log').select('to_address, subject, status, created_at').eq('sent_by', 'nedarim-auto').gte('created_at', weekAgo).order('created_at', { ascending: false }),
+      supabase.from('donor_issues').select('keva_id, donor_id, detail, amount, resolved_at').eq('type', 'failed_payment').eq('status', 'resolved').not('keva_id', 'is', null).gte('resolved_at', weekAgoDate),
+      supabase.from('message_log').select('donor_id, to_address, subject, status, created_at').eq('sent_by', 'nedarim-auto').gte('created_at', weekAgo).order('created_at', { ascending: false }),
       supabase.from('nedarim_sync_runs').select('*').order('started_at', { ascending: false }).limit(7),
     ]);
 
@@ -107,7 +107,7 @@ export async function buildWeeklyNedarimReport(
         <div style="font-size:12px;color:#666;">This week</div>
         <div style="font-size:14px;">🆕 ${newIssues?.length ?? 0} new bounce(s)</div>
         <div style="font-size:14px;">✅ ${resolvedIssues?.length ?? 0} recovered</div>
-        <div style="font-size:14px;">✉️ ${(sentLog ?? []).filter((l) => l.status === 'sent').length} recovery email(s)</div>
+        <div style="font-size:14px;">✉️ ${(sentLog ?? []).filter((l) => !['failed', 'bounced'].includes(l.status)).length} recovery email(s)</div>
       </td>
     </tr>
   </table>`;
@@ -134,12 +134,39 @@ export async function buildWeeklyNedarimReport(
     ])
   );
 
-  const outreachTable = table(
-    ['Sent to', 'Subject', 'Status'],
-    (sentLog ?? []).map((l) => [
+  // ── Outreach funnel: sent → delivered → opened → paid ────────────────
+  const recoveredDonors = new Set((resolvedIssues ?? []).map((i: any) => i.donor_id).filter(Boolean));
+  const STATUS_LABEL: Record<string, string> = {
+    sent: '✉️ sent', delivered: '📬 delivered', opened: '👀 opened',
+    clicked: '🔗 clicked link', bounced: '⚠️ bounced', failed: '❌ failed',
+  };
+  const log = sentLog ?? [];
+  // One row per donor: their latest email this week.
+  const latestByDonor = new Map<string, any>();
+  for (const l of log) if (l.donor_id && !latestByDonor.has(l.donor_id)) latestByDonor.set(l.donor_id, l);
+  const funnelRows = Array.from(latestByDonor.values());
+  const nOf = (s: string[]) => funnelRows.filter((l) => s.includes(l.status)).length;
+  const paidCount = funnelRows.filter((l) => recoveredDonors.has(l.donor_id)).length;
+  const funnelLine = funnelRows.length
+    ? `<p style="font-size:14px;margin:4px 0 8px;"><b>${funnelRows.length}</b> emailed →
+       <b>${nOf(['delivered', 'opened', 'clicked'])}</b> delivered →
+       <b>${nOf(['opened', 'clicked'])}</b> opened →
+       <b style="color:#1a7a3a;">${paidCount}</b> paid ✓
+       ${nOf(['bounced', 'failed']) ? ` · <b style="color:#c0392b;">${nOf(['bounced', 'failed'])}</b> undeliverable` : ''}</p>`
+    : '';
+
+  const outreachTable = funnelLine + table(
+    ['Donor', 'Email status', 'Result'],
+    funnelRows.map((l) => [
       esc(l.to_address),
-      esc(l.subject),
-      l.status === 'sent' ? '✅ sent' : `❌ ${esc(l.status)}`,
+      STATUS_LABEL[l.status] ?? esc(l.status),
+      recoveredDonors.has(l.donor_id)
+        ? '<b style="color:#1a7a3a;">✅ PAID — recovered</b>'
+        : ['opened', 'clicked'].includes(l.status)
+          ? '<span style="color:#8a6d1a;">saw it, not yet paid</span>'
+          : ['bounced', 'failed'].includes(l.status)
+            ? '<span style="color:#c0392b;">never reached them — call</span>'
+            : 'waiting',
     ])
   );
 

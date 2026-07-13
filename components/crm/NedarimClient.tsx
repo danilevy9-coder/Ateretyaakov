@@ -237,10 +237,13 @@ export default function NedarimClient() {
           .eq('donor_id', id).order('created_at', { ascending: false }).limit(10),
       ]);
       const items = [
-        ...(logRes.data ?? []).map((l: any) => ({
-          at: l.created_at as string,
-          body: `${l.status === 'sent' ? '✉️ Email sent' : '✉️❌ Email failed'}: ${l.subject}`,
-        })),
+        ...(logRes.data ?? []).map((l: any) => {
+          const label: Record<string, string> = {
+            sent: '✉️ Email sent', delivered: '📬 Email delivered', opened: '👀 Email opened',
+            clicked: '🔗 Email link clicked', bounced: '⚠️ Email bounced', failed: '✉️❌ Email failed',
+          };
+          return { at: l.created_at as string, body: `${label[l.status] ?? l.status}: ${l.subject}` };
+        }),
         ...(noteRes.data ?? []).map((n: any) => ({
           at: n.created_at as string,
           body: `${n.body}${n.author ? ` — ${n.author}` : ''}`,

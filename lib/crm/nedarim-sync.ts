@@ -663,6 +663,46 @@ export async function runNedarimSync(
       });
     }
 
+    // 6b ── engagement tracking: refresh delivery/open status ---------------
+    // Resend records the last event per email (delivered / opened / clicked /
+    // bounced). Poll recent outreach so the workbench + weekly digest can
+    // show who received, who opened, and who ignored.
+    try {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (apiKey && !process.env.NEDARIM_MOCK) {
+        const since = new Date(Date.now() - 14 * 86400_000).toISOString();
+        const { data: recent } = await supabase
+          .from('message_log')
+          .select('id, provider_id, status')
+          .eq('sent_by', 'nedarim-auto')
+          .in('status', ['sent', 'delivered', 'opened'])
+          .not('provider_id', 'is', null)
+          .gte('created_at', since)
+          .limit(200);
+        const rank: Record<string, number> = { sent: 0, delivered: 1, opened: 2, clicked: 3, bounced: 4 };
+        for (const m of recent ?? []) {
+          try {
+            const res = await fetch(`https://api.resend.com/emails/${m.provider_id}`, {
+              headers: { Authorization: `Bearer ${apiKey}` },
+              signal: AbortSignal.timeout(10000),
+            });
+            if (!res.ok) continue;
+            const j = (await res.json()) as { last_event?: string };
+            const ev = String(j.last_event || '');
+            const next =
+              /bounce|complain/.test(ev) ? 'bounced'
+              : ev === 'clicked' ? 'clicked'
+              : ev === 'opened' ? 'opened'
+              : ev === 'delivered' || ev === 'delivery_delayed' ? 'delivered'
+              : null;
+            if (next && (rank[next] ?? 0) > (rank[m.status] ?? 0)) {
+              await supabase.from('message_log').update({ status: next }).eq('id', m.id);
+            }
+          } catch { /* best effort per email */ }
+        }
+      }
+    } catch { /* tracking must never fail the sync */ }
+
     // 7 ── card-expiry watch (active, charging fine, expiring ≤ 1 month) ----
     for (const k of kevas) {
       if (!k.enabled || k.errorText) continue;

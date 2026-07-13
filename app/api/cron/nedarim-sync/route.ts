@@ -3,7 +3,9 @@ import { getApiUser } from '@/lib/crm/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runNedarimSync } from '@/lib/crm/nedarim-sync';
 import { sendWeeklyNedarimReport } from '@/lib/crm/nedarim-report';
-import { nedarimConfigured } from '@/lib/crm/nedarim';
+import { friendlyErrorReason, nedarimConfigured } from '@/lib/crm/nedarim';
+import { sendEmail } from '@/lib/crm/email';
+import { renderTemplate, ORG_NAME } from '@/lib/crm/util';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -121,10 +123,56 @@ export async function GET(req: NextRequest) {
   return handle(req);
 }
 
+// Send the donor-facing "Payment issue" template (EN + HE, sample values)
+// to an address of your choosing — see exactly what a bouncing donor gets.
+async function sendTestPaymentEmail(to: string) {
+  const supabase = createAdminClient();
+  const SITE = process.env.CRM_PUBLIC_URL || 'https://www.ateretyaakov.com';
+  const donateUrl = process.env.NEDARIM_DONATE_URL || `${SITE}/support`;
+  const { data: tmpls } = await supabase
+    .from('message_templates')
+    .select('language, subject, body')
+    .eq('channel', 'email')
+    .eq('category', 'failed_payment')
+    .order('is_default', { ascending: false });
+  const byLang = new Map<string, { subject: string | null; body: string }>();
+  for (const t of tmpls ?? []) if (!byLang.has(t.language)) byLang.set(t.language, t);
+
+  const sent: string[] = [];
+  for (const lang of ['en', 'he'] as const) {
+    const t = byLang.get(lang);
+    if (!t) continue;
+    const vars = {
+      first_name: 'Daniel', full_name: 'Daniel Levy',
+      monthly_amount: '180', amount: '180', balance: '',
+      currency: '₪', org: ORG_NAME,
+      error_reason: friendlyErrorReason('כרטיס פג תוקף', lang),
+      card_last4: '4321',
+    };
+    const subject = '[TEST] ' + renderTemplate(t.subject || 'Payment issue', vars);
+    const body = renderTemplate(t.body, vars).replaceAll('[DONATE LINK]', donateUrl);
+    await sendEmail({ to, subject, body, language: lang });
+    sent.push(lang);
+  }
+  return sent;
+}
+
 export async function POST(req: NextRequest) {
-  let body: { report?: boolean } | undefined;
+  let body: { report?: boolean; testEmail?: string } | undefined;
   try {
     body = await req.json();
   } catch { /* empty body is fine */ }
+
+  if (body?.testEmail) {
+    const auth = await isAuthorized(req);
+    if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+      const sent = await sendTestPaymentEmail(body.testEmail);
+      return NextResponse.json({ ok: true, testEmailSentTo: body.testEmail, languages: sent });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    }
+  }
+
   return handle(req, body);
 }

@@ -138,23 +138,26 @@ async function sendTestPaymentEmail(to: string) {
   const byLang = new Map<string, { subject: string | null; body: string }>();
   for (const t of tmpls ?? []) if (!byLang.has(t.language)) byLang.set(t.language, t);
 
-  const sent: string[] = [];
+  // One bilingual email, exactly as a donor receives it (English-preferred
+  // sample: English section on top, Hebrew below, name in matching script).
+  const sections: string[] = [];
+  let subject = '';
+  const sampleName: Record<string, string> = { en: 'Daniel', he: 'דניאל' };
   for (const lang of ['en', 'he'] as const) {
     const t = byLang.get(lang);
     if (!t) continue;
     const vars = {
-      first_name: 'Daniel', full_name: 'Daniel Levy',
+      first_name: sampleName[lang], full_name: 'Daniel Levy',
       monthly_amount: '180', amount: '180', balance: '',
       currency: '₪', org: ORG_NAME,
       error_reason: friendlyErrorReason('כרטיס פג תוקף', lang),
       card_last4: '4321',
     };
-    const subject = '[TEST] ' + renderTemplate(t.subject || 'Payment issue', vars);
-    const body = renderTemplate(t.body, vars).replaceAll('[DONATE LINK]', donateUrl);
-    await sendEmail({ to, subject, body, language: lang });
-    sent.push(lang);
+    if (!subject) subject = '[TEST] ' + renderTemplate(t.subject || 'Payment issue', vars);
+    sections.push(renderTemplate(t.body, vars).replaceAll('[DONATE LINK]', donateUrl));
   }
-  return sent;
+  await sendEmail({ to, subject, body: sections.join('\n\n──────────────────\n\n'), language: 'en' });
+  return ['bilingual'];
 }
 
 export async function POST(req: NextRequest) {

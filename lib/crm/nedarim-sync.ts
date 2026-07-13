@@ -52,6 +52,8 @@ interface DonorLite {
   external_id: string | null;
   first_name: string | null;
   full_name: string | null;
+  hebrew_name: string | null;
+  latin_name: string | null;
   preferred_language: 'en' | 'he';
   status: string;
   tags: string[];
@@ -59,6 +61,29 @@ interface DonorLite {
   currency: string;
   unsubscribed: boolean;
   unsubscribe_token: string;
+}
+
+// Greeting name in the right script for each language section of the
+// bilingual email. Falls back to whatever name exists — a Latin name in
+// the Hebrew section reads fine, and vice versa.
+export function greetingName(
+  lang: 'en' | 'he',
+  d: { first_name?: string | null; full_name?: string | null; hebrew_name?: string | null; latin_name?: string | null },
+  fallback?: string | null
+): string {
+  const heb = (s?: string | null) => /[֐-׿]/.test(s || '');
+  const first = (s?: string | null) => (s || '').trim().split(/\s+/)[0] || '';
+  const candidates =
+    lang === 'he'
+      ? [d.hebrew_name, heb(d.first_name) ? d.first_name : null, heb(d.full_name) ? d.full_name : null,
+         heb(fallback) ? fallback : null, d.first_name, d.full_name, fallback]
+      : [d.latin_name, !heb(d.first_name) ? d.first_name : null, !heb(d.full_name) ? d.full_name : null,
+         !heb(fallback) ? fallback : null, d.first_name, d.full_name, fallback];
+  for (const c of candidates) {
+    const f = first(c);
+    if (f) return f;
+  }
+  return lang === 'he' ? 'ידידנו' : 'Friend';
 }
 
 const todayJerusalem = () =>
@@ -195,7 +220,7 @@ export async function runNedarimSync(
     const donors = await fetchAllRows<DonorLite>(
       supabase,
       'donors',
-      'id, email, phone, whatsapp_phone, external_id, first_name, full_name, preferred_language, status, tags, monthly_amount, currency, unsubscribed, unsubscribe_token'
+      'id, email, phone, whatsapp_phone, external_id, first_name, full_name, hebrew_name, latin_name, preferred_language, status, tags, monthly_amount, currency, unsubscribed, unsubscribe_token'
     );
     const idx = buildDonorIndex(donors);
 
@@ -231,7 +256,7 @@ export async function runNedarimSync(
         const { data: created, error: insErr } = await supabase
           .from('donors')
           .insert(insert)
-          .select('id, email, phone, whatsapp_phone, external_id, first_name, full_name, preferred_language, status, tags, monthly_amount, currency, unsubscribed, unsubscribe_token')
+          .select('id, email, phone, whatsapp_phone, external_id, first_name, full_name, hebrew_name, latin_name, preferred_language, status, tags, monthly_amount, currency, unsubscribed, unsubscribe_token')
           .single();
         if (!insErr && created) {
           donor = created as DonorLite;
@@ -567,26 +592,35 @@ export async function runNedarimSync(
       const due = notifyCount === 0 || now - lastMs >= REMINDER_DAYS * 86400_000;
       if (!due) continue;
 
-      const lang = donor.preferred_language === 'he' ? 'he' : 'en';
-      const tmpl = tmplByLang.get(lang) ?? tmplByLang.get(lang === 'he' ? 'en' : 'he');
-      if (!tmpl) continue;
-
-      const vars = {
-        first_name: donor.first_name || (names || '').split(/\s+/)[0] || 'Friend',
-        full_name: donor.full_name || names || '',
-        monthly_amount: totalAmount.toLocaleString('en-US'),
-        amount: totalAmount.toLocaleString('en-US'),
-        balance: '',
-        currency: currencySymbol(main.currency),
-        org: ORG_NAME,
-        error_reason: friendlyErrorReason(main.errorText, lang),
-        card_last4: main.lastNum ?? '',
-      };
-      let subject = renderTemplate(tmpl.subject || `Payment issue — ${ORG_NAME}`, vars);
-      const body = renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL);
-      if (notifyCount > 0) {
-        subject = (lang === 'he' ? 'תזכורת: ' : 'Reminder: ') + subject;
+      // One bilingual email: the donor's language first, the other below.
+      // Greeting name rendered in the matching script for each section.
+      const preferred: 'he' | 'en' = donor.preferred_language === 'he' ? 'he' : 'en';
+      const ordered: ('he' | 'en')[] = preferred === 'he' ? ['he', 'en'] : ['en', 'he'];
+      const sections: string[] = [];
+      let subject = '';
+      for (const lang of ordered) {
+        const tmpl = tmplByLang.get(lang);
+        if (!tmpl) continue;
+        const vars = {
+          first_name: greetingName(lang, donor, names),
+          full_name: donor.full_name || names || '',
+          monthly_amount: totalAmount.toLocaleString('en-US'),
+          amount: totalAmount.toLocaleString('en-US'),
+          balance: '',
+          currency: currencySymbol(main.currency),
+          org: ORG_NAME,
+          error_reason: friendlyErrorReason(main.errorText, lang),
+          card_last4: main.lastNum ?? '',
+        };
+        if (!subject) subject = renderTemplate(tmpl.subject || `Payment issue — ${ORG_NAME}`, vars);
+        sections.push(renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL));
       }
+      if (!sections.length) continue;
+      const body = sections.join('\n\n──────────────────\n\n');
+      if (notifyCount > 0) {
+        subject = (preferred === 'he' ? 'תזכורת: ' : 'Reminder: ') + subject;
+      }
+      const lang = preferred; // email direction follows the top section
 
       // Safety valve for testing with real credentials: sync everything but
       // send nothing. Set NEDARIM_DRY_RUN=1 in the environment.

@@ -139,8 +139,9 @@ async function sendTestPaymentEmail(to: string) {
   for (const t of tmpls ?? []) if (!byLang.has(t.language)) byLang.set(t.language, t);
 
   // One bilingual email, exactly as a donor receives it (English-preferred
-  // sample: English section on top, Hebrew below, name in matching script).
-  const sections: string[] = [];
+  // sample: English section on top, Hebrew below, name in matching script,
+  // each section flowing in its own text direction).
+  const sections: { body: string; language: 'en' | 'he' }[] = [];
   let subject = '';
   const sampleName: Record<string, string> = { en: 'Daniel', he: 'דניאל' };
   for (const lang of ['en', 'he'] as const) {
@@ -154,9 +155,12 @@ async function sendTestPaymentEmail(to: string) {
       card_last4: '4321',
     };
     if (!subject) subject = '[TEST] ' + renderTemplate(t.subject || 'Payment issue', vars);
-    sections.push(renderTemplate(t.body, vars).replaceAll('[DONATE LINK]', donateUrl));
+    sections.push({
+      body: renderTemplate(t.body, vars).replaceAll('[DONATE LINK]', donateUrl),
+      language: lang,
+    });
   }
-  await sendEmail({ to, subject, body: sections.join('\n\n──────────────────\n\n'), language: 'en' });
+  await sendEmail({ to, subject, body: sections.map((s) => s.body).join('\n\n'), sections, language: 'en' });
   return ['bilingual'];
 }
 

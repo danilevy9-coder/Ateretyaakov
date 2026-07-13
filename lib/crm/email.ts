@@ -1,11 +1,42 @@
 import { Resend } from 'resend';
 
+export interface EmailSection {
+  body: string; // plain text
+  language?: 'en' | 'he'; // controls this section's direction/alignment
+}
+
 export interface OutgoingEmail {
   to: string;
   subject: string;
   body: string; // plain text (may contain newlines)
   language?: 'en' | 'he';
+  // Bilingual emails: each section renders with its own text direction
+  // (Hebrew RTL, English LTR), separated by a divider. When set, `body`
+  // is ignored for rendering (still useful for logs).
+  sections?: EmailSection[];
   unsubscribeUrl?: string; // when set, adds a footer link + one-click headers
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+
+// Multi-direction rendering: each language section flows its own way.
+export function sectionsToHtml(sections: EmailSection[], unsubscribeUrl?: string): string {
+  const parts = sections.map((s) => {
+    const dir = s.language === 'he' ? 'rtl' : 'ltr';
+    const align = s.language === 'he' ? 'right' : 'left';
+    return `<div style="text-align:${align};direction:${dir};unicode-bidi:embed;">${escapeHtml(s.body)}</div>`;
+  });
+  const footer = unsubscribeUrl
+    ? `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center;">
+         <a href="${unsubscribeUrl}" style="color:#999;text-decoration:underline;">Unsubscribe · להסרה מרשימת התפוצה</a>
+       </div>`
+    : '';
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f6f6f6;">
+  <div style="max-width:600px;margin:0 auto;padding:32px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1a1a1a;">
+    ${parts.join('<hr style="border:none;border-top:1px solid #e5e5e5;margin:26px 0;"/>')}
+    ${footer}
+  </div></body></html>`;
 }
 
 // Wrap plain-text body in minimal, RTL-aware HTML, with an unsubscribe footer.
@@ -61,7 +92,9 @@ export async function sendEmail(msg: OutgoingEmail): Promise<{ id: string }> {
     from,
     to: msg.to,
     subject: msg.subject,
-    html: bodyToHtml(msg.body, msg.language, msg.unsubscribeUrl),
+    html: msg.sections?.length
+      ? sectionsToHtml(msg.sections, msg.unsubscribeUrl)
+      : bodyToHtml(msg.body, msg.language, msg.unsubscribeUrl),
     replyTo: process.env.RESEND_REPLY_TO || undefined,
     headers: msg.unsubscribeUrl
       ? {

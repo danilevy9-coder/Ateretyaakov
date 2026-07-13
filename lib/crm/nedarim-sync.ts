@@ -596,7 +596,7 @@ export async function runNedarimSync(
       // Greeting name rendered in the matching script for each section.
       const preferred: 'he' | 'en' = donor.preferred_language === 'he' ? 'he' : 'en';
       const ordered: ('he' | 'en')[] = preferred === 'he' ? ['he', 'en'] : ['en', 'he'];
-      const sections: string[] = [];
+      const sections: { body: string; language: 'he' | 'en' }[] = [];
       let subject = '';
       for (const lang of ordered) {
         const tmpl = tmplByLang.get(lang);
@@ -613,10 +613,13 @@ export async function runNedarimSync(
           card_last4: main.lastNum ?? '',
         };
         if (!subject) subject = renderTemplate(tmpl.subject || `Payment issue — ${ORG_NAME}`, vars);
-        sections.push(renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL));
+        sections.push({
+          body: renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL),
+          language: lang,
+        });
       }
       if (!sections.length) continue;
-      const body = sections.join('\n\n──────────────────\n\n');
+      const body = sections.map((s) => s.body).join('\n\n──────────────────\n\n');
       if (notifyCount > 0) {
         subject = (preferred === 'he' ? 'תזכורת: ' : 'Reminder: ') + subject;
       }
@@ -635,7 +638,7 @@ export async function runNedarimSync(
       let errMsg: string | null = null;
       try {
         const r = await sendEmail({
-          to: donor.email, subject, body, language: lang,
+          to: donor.email, subject, body, language: lang, sections,
           unsubscribeUrl: `${SITE}/api/crm/unsubscribe?token=${donor.unsubscribe_token}`,
         });
         providerId = r.id;

@@ -1,11 +1,14 @@
-// ── Nedarim Plus sync + automated recovery outreach ─────────────────
+// ── Nedarim Plus sync + recovery outreach ───────────────────────────
 // Daily pipeline:
 //   1. Pull every standing order from Nedarim (GetKevaJson).
 //   2. Mirror into nedarim_keva, matching / creating donors.
 //   3. Open a failed_payment issue for every NEW bounce (ErrorText set),
 //      auto-resolve issues whose keva charges cleanly again.
-//   4. Email bouncing donors from the failed_payment template, in their
-//      language, with a staged cadence (initial → reminders → stop).
+//   4. Recovery emails — ONLY when crm_settings.outreach_mode is 'auto',
+//      and then only to donors whose category treatment allows it
+//      (see lib/crm/outreach.ts). In manual mode (the default) the sync
+//      detects and reports but sends nothing; the admin sends from the
+//      Recovery page.
 //   5. Log everything to nedarim_sync_runs for the UI + weekly digest.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -15,17 +18,15 @@ import {
   fetchAllKevas,
   fetchHistoryPage,
   fetchKevaDetail,
-  friendlyErrorReason,
   monthsUntilExpiry,
   type NedarimKeva,
 } from './nedarim';
-import { sendEmail } from './email';
-import { renderTemplate, currencySymbol, normalizePhone, ORG_NAME } from './util';
+import { currencySymbol, normalizePhone } from './util';
+import { loadOutreachConfig, ruleForDonor } from './outreach';
+import { loadRecoveryTemplates, sendRecoveryToDonor } from './recovery-email';
 
-const SITE = process.env.CRM_PUBLIC_URL || 'https://www.ateretyaakov.com';
-const DONATE_URL = process.env.NEDARIM_DONATE_URL || `${SITE}/support`;
-const REMINDER_DAYS = Number(process.env.NEDARIM_REMINDER_DAYS || 7);
-const MAX_NOTICES = Number(process.env.NEDARIM_MAX_NOTICES || 3);
+export { greetingName } from './recovery-email';
+
 const DETAIL_LOOKUPS_PER_RUN = 15; // GetKevaId calls per run, kept well under rate limits
 
 export interface SyncSummary {
@@ -61,29 +62,6 @@ interface DonorLite {
   currency: string;
   unsubscribed: boolean;
   unsubscribe_token: string;
-}
-
-// Greeting name in the right script for each language section of the
-// bilingual email. Falls back to whatever name exists — a Latin name in
-// the Hebrew section reads fine, and vice versa.
-export function greetingName(
-  lang: 'en' | 'he',
-  d: { first_name?: string | null; full_name?: string | null; hebrew_name?: string | null; latin_name?: string | null },
-  fallback?: string | null
-): string {
-  const heb = (s?: string | null) => /[֐-׿]/.test(s || '');
-  const first = (s?: string | null) => (s || '').trim().split(/\s+/)[0] || '';
-  const candidates =
-    lang === 'he'
-      ? [d.hebrew_name, heb(d.first_name) ? d.first_name : null, heb(d.full_name) ? d.full_name : null,
-         heb(fallback) ? fallback : null, d.first_name, d.full_name, fallback]
-      : [d.latin_name, !heb(d.first_name) ? d.first_name : null, !heb(d.full_name) ? d.full_name : null,
-         !heb(fallback) ? fallback : null, d.first_name, d.full_name, fallback];
-  for (const c of candidates) {
-    const f = first(c);
-    if (f) return f;
-  }
-  return lang === 'he' ? 'ידידנו' : 'Friend';
 }
 
 const todayJerusalem = () =>
@@ -190,9 +168,9 @@ export async function runNedarimSync(
     newBounces: 0, recovered: 0, emailsSent: 0, emailsFailed: 0, emailsSkipped: 0,
     paymentsImported: 0,
   };
-  const report: Record<string, unknown[]> = {
+  const report: Record<string, any> = {
     newBounces: [], recovered: [], emailsSent: [], needsAttention: [], expiringCards: [],
-    completedTerm: [],
+    completedTerm: [], heldForManual: [],
   };
 
   try {
@@ -530,17 +508,8 @@ export async function runNedarimSync(
       }
     }
 
-    // 6 ── automated recovery emails ----------------------------------------
-    const { data: tmplRows } = await supabase
-      .from('message_templates')
-      .select('language, subject, body, is_default')
-      .eq('channel', 'email')
-      .eq('category', 'failed_payment')
-      .order('is_default', { ascending: false });
-    const tmplByLang = new Map<string, { subject: string | null; body: string }>();
-    for (const t of tmplRows ?? []) {
-      if (!tmplByLang.has(t.language)) tmplByLang.set(t.language, t);
-    }
+    // 6 ── recovery emails — gated by the master switch + category rules ----
+    const tmplByLang = await loadRecoveryTemplates(supabase);
 
     // Group per donor — someone with several bouncing orders (it happens; one
     // donor had six) gets ONE email covering the combined monthly amount.
@@ -557,6 +526,10 @@ export async function runNedarimSync(
       g.kevas.push(k);
       groups.set(donor.id, g);
     }
+
+    // Master switch + per-category treatment for every donor in play.
+    const outreach = await loadOutreachConfig(supabase, Array.from(groups.keys()));
+    report.outreachMode = outreach.mode;
 
     const now = Date.now();
     for (const { donor, issues, kevas: donorKevas } of Array.from(groups.values())) {
@@ -580,50 +553,29 @@ export async function runNedarimSync(
         });
         continue;
       }
+      const rule = ruleForDonor(outreach, donor.id);
       const notifyCount = Math.max(...issues.map((i) => i.notify_count));
       const lastMs = Math.max(0, ...issues.map((i) => (i.last_notified_at ? new Date(i.last_notified_at).getTime() : 0)));
-      if (notifyCount >= MAX_NOTICES) {
+      if (notifyCount >= rule.max_messages) {
         report.needsAttention.push({
           kevaId: main.kevaId, name: names, amount: totalAmount, currency: main.currency,
           error: main.errorText, reason: `${notifyCount} emails sent, still bouncing — needs a call`,
         });
         continue;
       }
-      const due = notifyCount === 0 || now - lastMs >= REMINDER_DAYS * 86400_000;
+      const due = notifyCount === 0 || now - lastMs >= rule.followup_days * 86400_000;
       if (!due) continue;
 
-      // One bilingual email: the donor's language first, the other below.
-      // Greeting name rendered in the matching script for each section.
-      const preferred: 'he' | 'en' = donor.preferred_language === 'he' ? 'he' : 'en';
-      const ordered: ('he' | 'en')[] = preferred === 'he' ? ['he', 'en'] : ['en', 'he'];
-      const sections: { body: string; language: 'he' | 'en' }[] = [];
-      let subject = '';
-      for (const lang of ordered) {
-        const tmpl = tmplByLang.get(lang);
-        if (!tmpl) continue;
-        const vars = {
-          first_name: greetingName(lang, donor, names),
-          full_name: donor.full_name || names || '',
-          monthly_amount: totalAmount.toLocaleString('en-US'),
-          amount: totalAmount.toLocaleString('en-US'),
-          balance: '',
-          currency: currencySymbol(main.currency),
-          org: ORG_NAME,
-          error_reason: friendlyErrorReason(main.errorText, lang),
-          card_last4: main.lastNum ?? '',
-        };
-        if (!subject) subject = renderTemplate(tmpl.subject || `Payment issue — ${ORG_NAME}`, vars);
-        sections.push({
-          body: renderTemplate(tmpl.body, vars).replaceAll('[DONATE LINK]', DONATE_URL),
-          language: lang,
+      // Master switch off, or this donor's category says manual/none →
+      // hold it for the admin. The Recovery page is the send button.
+      if (outreach.mode !== 'auto' || rule.policy !== 'auto') {
+        summary.emailsSkipped++;
+        report.heldForManual.push({
+          name: names, to: donor.email, amount: totalAmount, currency: main.currency,
+          reason: outreach.mode !== 'auto' ? 'Sending is set to manual' : `Category treatment: ${rule.policy}`,
         });
+        continue;
       }
-      if (!sections.length) continue;
-      const body = sections.map((s) => s.body).join('\n\n──────────────────\n\n');
-      if (notifyCount > 0) {
-        subject = (preferred === 'he' ? 'תזכורת: ' : 'Reminder: ') + subject;
-      }
-      const lang = preferred; // email direction follows the top section
 
       // Safety valve for testing with real credentials: sync everything but
       // send nothing. Set NEDARIM_DRY_RUN=1 in the environment.
@@ -633,34 +585,19 @@ export async function runNedarimSync(
         continue;
       }
 
-      let status = 'sent';
-      let providerId: string | null = null;
-      let errMsg: string | null = null;
-      try {
-        const r = await sendEmail({
-          to: donor.email, subject, body, language: lang, sections,
-          unsubscribeUrl: `${SITE}/api/crm/unsubscribe?token=${donor.unsubscribe_token}`,
-        });
-        providerId = r.id;
+      const res = await sendRecoveryToDonor({
+        supabase, donor, kevas: donorKevas,
+        issueIds: issues.map((i) => i.id), notifyCount, tmplByLang,
+        sentBy: 'nedarim-auto', batchId: runId,
+      });
+      if (res.ok) {
         summary.emailsSent++;
         report.emailsSent.push({
           to: donor.email, name: names, kevaId: main.kevaId, orders: donorKevas.length, notice: notifyCount + 1,
         });
-        // Stamp every one of the donor's bouncing issues so cadence stays in
-        // step across all their orders.
-        await supabase.from('donor_issues')
-          .update({ last_notified_at: new Date().toISOString(), notify_count: notifyCount + 1 })
-          .in('id', issues.map((i) => i.id));
-      } catch (e) {
-        status = 'failed';
-        errMsg = String(e);
+      } else {
         summary.emailsFailed++; // notify_count not bumped — retried next run
       }
-      await supabase.from('message_log').insert({
-        donor_id: donor.id, channel: 'email', language: lang,
-        to_address: donor.email, subject, body, status,
-        provider_id: providerId, error: errMsg, sent_by: 'nedarim-auto', batch_id: runId,
-      });
     }
 
     // 6b ── engagement tracking: refresh delivery/open status ---------------
@@ -674,7 +611,7 @@ export async function runNedarimSync(
         const { data: recent } = await supabase
           .from('message_log')
           .select('id, provider_id, status')
-          .eq('sent_by', 'nedarim-auto')
+          .in('sent_by', ['nedarim-auto', 'nedarim-manual'])
           .in('status', ['sent', 'delivered', 'opened'])
           .not('provider_id', 'is', null)
           .gte('created_at', since)

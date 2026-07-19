@@ -30,22 +30,32 @@ export async function POST(req: NextRequest) {
     // Look up unsubscribe status + token for all donor recipients up front.
     const donorIds = Array.from(new Set(messages.map((m) => m.donorId).filter(Boolean))) as string[];
     const sub = new Map<string, { token: string; unsubscribed: boolean }>();
+    // Donors in a "Do not email" category are skipped in every send.
+    const noContact = new Set<string>();
     if (donorIds.length) {
       const { data } = await supabase
         .from('donors')
         .select('id, unsubscribe_token, unsubscribed')
         .in('id', donorIds);
       for (const d of data ?? []) sub.set(d.id, { token: d.unsubscribe_token, unsubscribed: d.unsubscribed });
+      const { data: dnc } = await supabase
+        .from('donor_categories')
+        .select('donor_id, categories!inner(outreach_policy)')
+        .in('donor_id', donorIds)
+        .eq('categories.outreach_policy', 'none');
+      for (const r of dnc ?? []) noContact.add(r.donor_id);
     }
 
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    let doNotContact = 0;
     const errors: string[] = [];
 
     for (const m of messages) {
       // Never email someone who unsubscribed.
       if (m.donorId && sub.get(m.donorId)?.unsubscribed) { skipped++; continue; }
+      if (m.donorId && noContact.has(m.donorId)) { skipped++; doNotContact++; continue; }
       if (!m.to) { failed++; errors.push('Missing email for a recipient'); continue; }
 
       const token = m.donorId ? sub.get(m.donorId)?.token : undefined;
@@ -81,7 +91,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ sent, failed, skipped, errors });
+    return NextResponse.json({ sent, failed, skipped, doNotContact, errors });
   } catch (err) {
     console.error('[send/email]', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

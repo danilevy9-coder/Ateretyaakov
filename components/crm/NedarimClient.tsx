@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol, waLink } from '@/lib/crm/util';
 import HelpBox from './HelpBox';
+import {
+  combineRules,
+  FALLBACK_RULE,
+  type OutreachMode,
+  type TreatmentRule,
+} from '@/lib/crm/outreach';
 
 // ── Recovery workbench ────────────────────────────────────────────────
 // One donor per row, grouped across all their standing orders, sorted by
@@ -76,17 +82,23 @@ interface WorkRow {
   lastCalled: string | null;
   bucket: Bucket;
   lifetime: PayStat | null;
+  rule: TreatmentRule;
+  canEmail: boolean; // has an email, not unsubscribed, not do-not-email
 }
 
 const d = (s: string | null | undefined) => (s ? s.slice(0, 10) : '—');
 const dt = (s: string | null | undefined) => (s ? s.slice(0, 16).replace('T', ' ') : '—');
 
-const BUCKET_META: Record<Bucket, { label: string; hint: string; color: string }> = {
-  new:      { label: '🆕 New',        hint: 'Just detected — first email goes out on the next sync', color: 'text-sky-300' },
-  emailing: { label: '✉️ Emailing',   hint: 'Automated recovery emails in progress',                 color: 'text-amber-300' },
-  call:     { label: '📞 Call these', hint: 'Email can’t reach them — needs your personal touch',    color: 'text-red-300' },
-  left_out: { label: '⏸️ Left out',   hint: 'You excluded them — automation won’t touch them',       color: 'text-slate-400' },
-};
+const bucketMeta = (mode: OutreachMode): Record<Bucket, { label: string; hint: string; color: string }> => ({
+  new:      { label: '🆕 New',        hint: mode === 'manual'
+                ? 'Just detected — tick the boxes and press “Send email” to reach out'
+                : 'Just detected — auto-email categories get their first email on the next sync', color: 'text-sky-300' },
+  emailing: { label: '✉️ Emailed',    hint: mode === 'manual'
+                ? 'Already emailed at least once — follow up from here when enough time has passed'
+                : 'Recovery emails in progress (per the category rules)',                          color: 'text-amber-300' },
+  call:     { label: '📞 Call these', hint: 'Email can’t reach them — needs your personal touch',  color: 'text-red-300' },
+  left_out: { label: '⏸️ Left out',   hint: 'You excluded them — no emails, manual or automatic',  color: 'text-slate-400' },
+});
 
 export default function NedarimClient() {
   const [kevas, setKevas] = useState<KevaRow[]>([]);
@@ -101,11 +113,16 @@ export default function NedarimClient() {
   const [tab, setTab] = useState<'all' | Bucket | 'recovered' | 'renewals'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<Map<string, { at: string; body: string }[]>>(new Map());
+  const [mode, setMode] = useState<OutreachMode>('manual');
+  const [defaultRule, setDefaultRule] = useState<TreatmentRule>({ ...FALLBACK_RULE });
+  const [catRules, setCatRules] = useState<Map<string, TreatmentRule>>(new Map());
+  const [donorCats, setDonorCats] = useState<Map<string, string[]>>(new Map());
+  const [sel, setSel] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const supabase = createClient();
     const sixtyDaysAgo = new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10);
-    const [kevaRes, issueRes, resolvedRes, runRes] = await Promise.all([
+    const [kevaRes, issueRes, resolvedRes, runRes, settingsRes, catRes] = await Promise.all([
       supabase.from('nedarim_keva').select('*').order('amount', { ascending: false }).limit(2000),
       supabase.from('donor_issues')
         .select('id, donor_id, keva_id, type, status, notify_count, last_notified_at, last_called_at, snooze_reason, resolved_at, amount')
@@ -115,6 +132,8 @@ export default function NedarimClient() {
         .not('keva_id', 'is', null).eq('type', 'failed_payment').eq('status', 'resolved')
         .gte('resolved_at', sixtyDaysAgo).order('resolved_at', { ascending: false }).limit(50),
       supabase.from('nedarim_sync_runs').select('*').order('started_at', { ascending: false }).limit(8),
+      supabase.from('crm_settings').select('key, value').in('key', ['outreach_mode', 'default_treatment']),
+      supabase.from('categories').select('id, outreach_policy, followup_days, max_messages'),
     ]);
     const kevaRows = (kevaRes.data ?? []) as KevaRow[];
     setKevas(kevaRows);
@@ -122,16 +141,39 @@ export default function NedarimClient() {
     setResolved((resolvedRes.data ?? []) as IssueRow[]);
     setRuns((runRes.data ?? []) as RunRow[]);
 
+    for (const s of settingsRes.data ?? []) {
+      if (s.key === 'outreach_mode') setMode(s.value === 'auto' ? 'auto' : 'manual');
+      if (s.key === 'default_treatment' && s.value && typeof s.value === 'object') {
+        setDefaultRule({ ...FALLBACK_RULE, ...(s.value as Partial<TreatmentRule>) });
+      }
+    }
+    setCatRules(new Map((catRes.data ?? []).map((c: any) => [c.id as string, {
+      policy: c.outreach_policy === 'auto' || c.outreach_policy === 'none' ? c.outreach_policy : 'manual',
+      followup_days: c.followup_days ?? 7,
+      max_messages: c.max_messages ?? 3,
+    } as TreatmentRule])));
+
     const donorIds = Array.from(new Set(kevaRows.map((k) => k.donor_id).filter(Boolean))) as string[];
     if (donorIds.length) {
       const dMap = new Map<string, DonorRow>();
+      const dcMap = new Map<string, string[]>();
       for (let i = 0; i < donorIds.length; i += 200) {
-        const { data } = await supabase.from('donors')
-          .select('id, full_name, email, phone, whatsapp_phone, unsubscribed, preferred_language')
-          .in('id', donorIds.slice(i, i + 200));
+        const chunk = donorIds.slice(i, i + 200);
+        const [{ data }, { data: links }] = await Promise.all([
+          supabase.from('donors')
+            .select('id, full_name, email, phone, whatsapp_phone, unsubscribed, preferred_language')
+            .in('id', chunk),
+          supabase.from('donor_categories').select('donor_id, category_id').in('donor_id', chunk),
+        ]);
         for (const row of (data ?? []) as DonorRow[]) dMap.set(row.id, row);
+        for (const l of links ?? []) {
+          const arr = dcMap.get(l.donor_id) ?? [];
+          arr.push(l.category_id);
+          dcMap.set(l.donor_id, arr);
+        }
       }
       setDonors(dMap);
+      setDonorCats(dcMap);
       const { data: stats } = await supabase.rpc('nedarim_donor_payment_stats', { donor_ids: donorIds });
       setPayStats(new Map(((stats ?? []) as PayStat[]).map((s) => [s.donor_id, s])));
     }
@@ -161,9 +203,15 @@ export default function NedarimClient() {
       const notifyCount = Math.max(0, ...g.issues.map((i) => i.notify_count));
       const allSnoozed = g.issues.length > 0 && g.issues.every((i) => i.status === 'snoozed');
       const email = donor?.email ?? main.email;
+      const rule = combineRules(
+        (donorId ? donorCats.get(donorId) ?? [] : [])
+          .map((cid) => catRules.get(cid))
+          .filter(Boolean) as TreatmentRule[],
+        defaultRule
+      );
       let bucket: Bucket;
       if (allSnoozed) bucket = 'left_out';
-      else if (!email || donor?.unsubscribed || notifyCount >= 3) bucket = 'call';
+      else if (!email || donor?.unsubscribed || notifyCount >= rule.max_messages) bucket = 'call';
       else if (notifyCount === 0) bucket = 'new';
       else bucket = 'emailing';
       rows.push({
@@ -179,10 +227,12 @@ export default function NedarimClient() {
         lastCalled: g.issues.map((i) => i.last_called_at).filter(Boolean).sort().pop() ?? null,
         bucket,
         lifetime: donorId ? payStats.get(donorId) ?? null : null,
+        rule,
+        canEmail: Boolean(donorId && email && !donor?.unsubscribed && rule.policy !== 'none' && !allSnoozed),
       });
     }
     return rows.sort((a, b) => b.monthly - a.monthly);
-  }, [kevas, issues, donors, payStats]);
+  }, [kevas, issues, donors, payStats, donorCats, catRules, defaultRule]);
 
   const completedRows = useMemo(
     () => kevas.filter((k) => k.enabled && k.error_kind === 'completed'),
@@ -254,6 +304,36 @@ export default function NedarimClient() {
     }
   };
 
+  // Manual send — the admin picked these donors, so it goes out regardless
+  // of mode/category (only unsubscribed stays blocked, server-side).
+  const sendEmails = async (ids: string[]) => {
+    const unique = Array.from(new Set(ids));
+    if (!unique.length) return;
+    if (!window.confirm(`Send the payment-issue email to ${unique.length} donor(s) now?\n\nThe wording comes from the "Payment issue" template (Templates page).`)) return;
+    setBusy('send');
+    setActionMsg(null);
+    try {
+      const res = await fetch('/api/crm/nedarim/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donorIds: unique }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Send failed');
+      setActionMsg(
+        `✉️ Sent ${j.sent}` +
+        (j.failed ? ` · ${j.failed} failed` : '') +
+        (j.skipped ? ` · ${j.skipped} skipped` : '') +
+        (j.errors?.length ? ` — ${j.errors.slice(0, 3).join(' · ')}${j.errors.length > 3 ? '…' : ''}` : '')
+      );
+      setSel(new Set());
+      setTimeline(new Map());
+    } catch (e) {
+      setActionMsg(`❌ ${String(e)}`);
+    }
+    setBusy(null);
+    load();
+  };
+
   const trigger = async (kind: 'sync' | 'report') => {
     setBusy(kind);
     setActionMsg(null);
@@ -282,6 +362,19 @@ export default function NedarimClient() {
   const visible = tab === 'all' ? workRows : workRows.filter((r) => r.bucket === tab);
   const sumMonthly = (rows: WorkRow[]) => rows.reduce((s, r) => s + r.monthly, 0);
   const lastRun = runs[0];
+  const META = bucketMeta(mode);
+  const selectable = visible.filter((r) => r.canEmail);
+  const allSelected = selectable.length > 0 && selectable.every((r) => sel.has(r.donorId!));
+  const toggleAll = () => {
+    setSel(allSelected ? new Set() : new Set(selectable.map((r) => r.donorId!)));
+  };
+  const toggleOne = (id: string) => {
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-7xl">
@@ -299,22 +392,36 @@ export default function NedarimClient() {
           </button>
         </div>
       </div>
-      <p className="text-slate-400 text-sm mb-5">
+      <p className="text-slate-400 text-sm mb-3">
         {workRows.length} donors bouncing · {fmtMoney(sumMonthly(workRows), currencySymbol('ILS'))}/mo at risk ·
         last sync {lastRun ? dt(lastRun.started_at) : 'never'}{lastRun?.ok === false ? ' (failed)' : ''}
       </p>
 
+      {/* Sending-mode banner — the answer to "will this page email anyone by itself?" */}
+      <div className={`rounded-xl border px-4 py-2.5 mb-5 text-sm flex flex-wrap items-center gap-2 ${
+        mode === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+        {mode === 'manual'
+          ? <span><b>✋ Manual sending</b> — nothing goes out automatically. Select donors below and press “Send email”.</span>
+          : <span><b>🤖 Automatic sending</b> — the daily sync emails donors in 🤖 auto-email categories, at the pace set per category.</span>}
+        <a href="/crm/categories" className="underline opacity-80 hover:opacity-100">Change in Categories →</a>
+      </div>
+
       <HelpBox>
-        <p>This page recovers failed monthly donations <b>automatically</b>. Every morning it checks Nedarim Plus
-        (read-only — it can never change or charge anything there), emails donors whose cards failed
-        (bilingual, up to 3 times, a week apart), and closes everything by itself when the payment recovers.</p>
-        <p><b>The tabs = what needs doing:</b> 🆕 New (just detected) · ✉️ Emailing (automation working) ·
-        📞 <b>Call these — your to-do list</b> (email can&apos;t reach them or was ignored 3×) · ⏸️ Left out (you excluded them) ·
+        <p>This page recovers failed monthly donations. Every morning it checks Nedarim Plus (read-only — it can
+        never change or charge anything there), detects cards that failed, and closes everything by itself when
+        the payment recovers. <b>Whether it also emails the donors is up to you:</b> the banner above shows the
+        current sending mode, set on the <a href="/crm/categories">Categories</a> page.</p>
+        <p><b>To email donors yourself:</b> tick the boxes (or the top box for everyone), press
+        <b> ✉️ Send email</b> — each donor gets the bilingual &quot;Payment issue&quot; email, once per donor even with
+        several orders. The count next to each donor shows how many they&apos;ve received; sending again before the
+        follow-up gap is your call.</p>
+        <p><b>The tabs = what needs doing:</b> 🆕 New (never emailed) · ✉️ Emailed (outreach under way) ·
+        📞 <b>Call these — your to-do list</b> (no email, unsubscribed, or all emails ignored) · ⏸️ Left out (you excluded them) ·
         ✅ Recovered · 🔄 Renewals (finished their commitment — never nagged, worth a personal ask).</p>
-        <p><b>Row buttons:</b> WhatsApp opens a pre-filled message · 📞 Called logs your call · ⏸ Leave out stops all automation
-        for them · ✓ Resolve closes it · ✎ Note saves a note. <b>Click a donor&apos;s name</b> for their full history.</p>
-        <p><b>Lifetime given</b> = their real payment history from Nedarim — prioritize big long-time givers for calls.
-        The Sunday email report summarizes all of this, including who opened the emails and who paid.</p>
+        <p><b>Row buttons:</b> ✉️ Email sends now · WhatsApp opens a pre-filled message · 📞 Called logs your call ·
+        ⏸ Leave out blocks all emailing for them · ✓ Resolve closes it · ✎ Note saves a note.
+        <b> Click a donor&apos;s name</b> for their full history. <b>Lifetime given</b> = their real Nedarim payment
+        history — prioritize big long-time givers for calls.</p>
       </HelpBox>
 
       {actionMsg && (
@@ -324,10 +431,10 @@ export default function NedarimClient() {
       {/* Bucket tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
         {([['all', `All bouncing (${workRows.length})`],
-           ['new', `${BUCKET_META.new.label} (${counts.new})`],
-           ['emailing', `${BUCKET_META.emailing.label} (${counts.emailing})`],
-           ['call', `${BUCKET_META.call.label} (${counts.call})`],
-           ['left_out', `${BUCKET_META.left_out.label} (${counts.left_out})`],
+           ['new', `${META.new.label} (${counts.new})`],
+           ['emailing', `${META.emailing.label} (${counts.emailing})`],
+           ['call', `${META.call.label} (${counts.call})`],
+           ['left_out', `${META.left_out.label} (${counts.left_out})`],
            ['recovered', `✅ Recovered (${resolved.length})`],
            ['renewals', `🔄 Renewals (${completedRows.length})`]] as [typeof tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
@@ -340,7 +447,19 @@ export default function NedarimClient() {
       </div>
 
       {tab !== 'recovered' && tab !== 'renewals' && tab !== 'all' && (
-        <p className="text-slate-500 text-xs mb-3">{BUCKET_META[tab as Bucket].hint}</p>
+        <p className="text-slate-500 text-xs mb-3">{META[tab as Bucket].hint}</p>
+      )}
+
+      {/* Selection action bar */}
+      {tab !== 'recovered' && tab !== 'renewals' && sel.size > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 mb-3 flex flex-wrap items-center gap-3 text-sm">
+          <span className="text-amber-200 font-semibold">{sel.size} selected</span>
+          <button onClick={() => sendEmails(Array.from(sel))} disabled={busy !== null}
+            className="px-4 py-1.5 rounded-lg bg-amber-500 text-black font-semibold hover:bg-amber-400 disabled:opacity-50">
+            {busy === 'send' ? 'Sending…' : `✉️ Send email to ${sel.size} donor${sel.size !== 1 ? 's' : ''}`}
+          </button>
+          <button onClick={() => setSel(new Set())} className="text-slate-400 hover:text-white text-xs">Clear</button>
+        </div>
       )}
 
       {/* ── Main workbench table ── */}
@@ -349,6 +468,10 @@ export default function NedarimClient() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-slate-400 uppercase tracking-wide border-b border-white/10">
+                <th className="px-3 py-3 w-8">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                    title="Select everyone on this tab who can be emailed" />
+                </th>
                 <th className="px-4 py-3">Donor</th>
                 <th className="px-4 py-3">At risk</th>
                 <th className="px-4 py-3">Lifetime given</th>
@@ -360,7 +483,7 @@ export default function NedarimClient() {
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-slate-500 text-center">
+                <tr><td colSpan={8} className="px-4 py-8 text-slate-500 text-center">
                   {loading ? 'Loading…' : tab === 'all' ? 'No bouncing donors 🎉' : 'Nothing here'}
                 </td></tr>
               )}
@@ -371,6 +494,11 @@ export default function NedarimClient() {
                 return (
                   <>
                     <tr key={key} className="border-b border-white/5 hover:bg-white/[0.02] align-top">
+                      <td className="px-3 py-3">
+                        {row.canEmail
+                          ? <input type="checkbox" checked={sel.has(row.donorId!)} onChange={() => toggleOne(row.donorId!)} />
+                          : <span className="text-slate-600" title={row.rule.policy === 'none' ? 'Do-not-email category' : row.donor?.unsubscribed ? 'Unsubscribed' : row.bucket === 'left_out' ? 'Left out' : 'No email address'}>—</span>}
+                      </td>
                       <td className="px-4 py-3">
                         <button onClick={() => toggleExpand(row)} className="text-left">
                           <span className="font-medium text-white">{row.name}</span>
@@ -395,14 +523,23 @@ export default function NedarimClient() {
                       <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{d(row.since)}</td>
                       <td className="px-4 py-3 text-slate-300 max-w-[220px]" dir="rtl">{row.error}</td>
                       <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
-                        <span className={BUCKET_META[row.bucket].color}>{BUCKET_META[row.bucket].label}</span>
+                        <span className={META[row.bucket].color}>{META[row.bucket].label}</span>
                         <span className="block text-xs text-slate-500">
-                          {row.notifyCount > 0 ? `${row.notifyCount}/3 emails · last ${d(row.lastNotified)}` : 'no emails yet'}
+                          {row.notifyCount > 0 ? `${row.notifyCount}/${row.rule.max_messages} emails · last ${d(row.lastNotified)}` : 'no emails yet'}
                           {row.lastCalled ? ` · called ${d(row.lastCalled)}` : ''}
+                        </span>
+                        <span className="block text-xs text-slate-600">
+                          {row.rule.policy === 'none' ? '🚫 do not email'
+                            : row.rule.policy === 'manual' || mode === 'manual' ? '✋ manual send'
+                            : `🤖 auto · every ${row.rule.followup_days}d`}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex flex-wrap gap-1.5">
+                          {row.canEmail && (
+                            <button onClick={() => sendEmails([row.donorId!])} disabled={busy !== null}
+                              className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-xs hover:bg-amber-500/30 disabled:opacity-50">✉️ Email</button>
+                          )}
                           {phone && (
                             <a href={waLink(phone, waMessage(row))} target="_blank" rel="noreferrer"
                               className="px-2 py-1 rounded bg-emerald-600/20 text-emerald-300 text-xs hover:bg-emerald-600/30">WhatsApp</a>
@@ -423,7 +560,7 @@ export default function NedarimClient() {
                     </tr>
                     {isOpen && row.donorId && (
                       <tr key={key + '-tl'} className="border-b border-white/5 bg-white/[0.015]">
-                        <td colSpan={7} className="px-6 py-3">
+                        <td colSpan={8} className="px-6 py-3">
                           <p className="text-xs text-slate-400 font-semibold mb-2">History</p>
                           {(timeline.get(row.donorId) ?? []).length === 0
                             ? <p className="text-xs text-slate-500">No activity recorded yet.</p>
@@ -536,9 +673,10 @@ export default function NedarimClient() {
       </details>
 
       <p className="text-slate-500 text-xs leading-relaxed">
-        Daily sync ~8:00 Israel time · weekly digest Sunday · recovery emails: first notice on detection,
-        reminders every 7 days, max 3, one email per donor across all their orders, never to unsubscribed
-        or left-out donors. Templates editable under <a href="/crm/templates" className="underline">Templates</a>.
+        Daily sync ~8:00 Israel time · weekly digest Sunday · one email per donor across all their orders,
+        never to unsubscribed, left-out, or 🚫 do-not-email donors. Sending mode and per-category follow-up
+        rules are set on the <a href="/crm/categories" className="underline">Categories</a> page; wording under{' '}
+        <a href="/crm/templates" className="underline">Templates</a>.
       </p>
     </div>
   );

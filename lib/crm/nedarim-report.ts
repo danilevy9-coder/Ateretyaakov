@@ -55,7 +55,7 @@ export async function buildWeeklyNedarimReport(
       supabase.from('nedarim_keva').select('keva_id, client_name, amount, currency, error_text, error_kind, bouncing_since, email, phone, enabled, tokef').limit(5000),
       supabase.from('donor_issues').select('keva_id, detail, amount, detected_at').eq('type', 'failed_payment').not('keva_id', 'is', null).gte('detected_at', weekAgoDate).order('detected_at', { ascending: false }),
       supabase.from('donor_issues').select('keva_id, donor_id, detail, amount, resolved_at').eq('type', 'failed_payment').eq('status', 'resolved').not('keva_id', 'is', null).gte('resolved_at', weekAgoDate),
-      supabase.from('message_log').select('donor_id, to_address, subject, status, created_at').eq('sent_by', 'nedarim-auto').gte('created_at', weekAgo).order('created_at', { ascending: false }),
+      supabase.from('message_log').select('donor_id, to_address, subject, status, created_at').in('sent_by', ['nedarim-auto', 'nedarim-manual']).gte('created_at', weekAgo).order('created_at', { ascending: false }),
       supabase.from('nedarim_sync_runs').select('*').order('started_at', { ascending: false }).limit(7),
     ]);
 
@@ -75,6 +75,8 @@ export async function buildWeeklyNedarimReport(
   const failedRuns = (lastRuns ?? []).filter((r) => r.ok === false);
   const needsAttention: Record<string, unknown>[] = Array.isArray(lastRun?.report?.needsAttention)
     ? lastRun.report.needsAttention : [];
+  const heldForManual: Record<string, unknown>[] = Array.isArray(lastRun?.report?.heldForManual)
+    ? lastRun.report.heldForManual : [];
 
   const expiring = active
     .map((k) => ({ ...k, monthsLeft: monthsUntilExpiry(k.tokef) }))
@@ -179,6 +181,16 @@ export async function buildWeeklyNedarimReport(
     ])
   );
 
+  const heldTable = table(
+    ['Donor', 'Monthly', 'Email', 'Why not sent automatically'],
+    heldForManual.map((n) => [
+      esc((n as any).name),
+      fmtMoney(Number((n as any).amount ?? 0), sym(String((n as any).currency ?? 'ILS'))),
+      esc((n as any).to),
+      esc((n as any).reason),
+    ])
+  ) + `<p style="color:#888;font-size:13px;margin:-8px 0 18px;">Send these from the Nedarim page — select the donors and press “Send email”.</p>`;
+
   const completedTable = table(
     ['Donor', 'Was giving', 'Contact'],
     completedTerm
@@ -218,7 +230,8 @@ export async function buildWeeklyNedarimReport(
     ${section(`🔴 Currently bouncing (${bouncing.length})`, bouncingTable)}
     ${section(`🙏 Needs your personal attention (${needsAttention.length})`, attentionTable)}
     ${section(`✅ Recovered this week (${resolvedIssues?.length ?? 0})`, recoveredTable)}
-    ${section(`✉️ Automated recovery emails this week (${sentLog?.length ?? 0})`, outreachTable)}
+    ${heldForManual.length ? section(`✋ Waiting for you to send (${heldForManual.length})`, heldTable) : ''}
+    ${section(`✉️ Recovery emails this week (${sentLog?.length ?? 0})`, outreachTable)}
     ${section(`🔄 Finished their commitment — worth a renewal ask (${completedTerm.length})`, completedTable)}
     ${section(`⏳ Cards expiring within a month (${expiring.length})`, expiringTable)}
     <p style="color:#999;font-size:12px;margin-top:28px;">Sent automatically by the Ateret Yaakov CRM · <a href="${process.env.CRM_PUBLIC_URL || 'https://www.ateretyaakov.com'}/crm/nedarim" style="color:#999;">open the Nedarim dashboard</a></p>

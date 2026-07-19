@@ -25,17 +25,22 @@ export default function HelpPage() {
       <S title="The big picture">
         <p>
           This CRM manages the yeshiva&apos;s donors and, most importantly, <b>recovers failed monthly
-          donations automatically</b>. It connects directly to Nedarim Plus (read-only — it can never
-          change or charge anything there), watches every standing order (הוראת קבע), emails donors
+          donations</b>. It connects directly to Nedarim Plus (read-only — it can never
+          change or charge anything there), watches every standing order (הוראת קבע), flags donors
           whose cards fail, and reports to you weekly.
         </p>
-        <p><b>Your only required job:</b> read the Sunday email report and call the few people it tells you to call.</p>
+        <p>
+          <b>Who gets emailed, and when, is under your control.</b> The <b>Sending mode</b> switch on the
+          Categories page decides: <b>✋ Manual</b> (the default — nothing is ever emailed until you select
+          donors and press Send) or <b>🤖 Automatic</b> (the system emails by itself, but only donors whose
+          category allows it, at the pace you set per category).
+        </p>
       </S>
 
       <S title="The automatic daily cycle (~8:00 AM Israel time)">
         <p>1. Pulls all standing orders + new payments from Nedarim Plus.</p>
-        <p>2. <b>New card failure found</b> → opens a &quot;failed payment&quot; issue → emails the donor the same morning (bilingual, their language first, with the reason and a payment link).</p>
-        <p>3. <b>Still failing after 7 days</b> → reminder email. After 14 days → final email. After 3 emails → stops emailing and puts them on your 📞 call list.</p>
+        <p>2. <b>New card failure found</b> → opens a &quot;failed payment&quot; issue and shows the donor on the Nedarim Plus page.</p>
+        <p>3. <b>Emailing:</b> in ✋ Manual mode it sends nothing — you do it from the Nedarim Plus page. In 🤖 Automatic mode it emails donors in auto-email categories (bilingual, their language first, with the reason and a payment link), follows up at the pace set per category, then stops and puts them on your 📞 call list.</p>
         <p>4. <b>Donor fixed it</b> (Nedarim charges successfully) → everything closes itself, donor marked active again. You do nothing.</p>
         <p>5. <b>Donor finished their committed months</b> → that is NOT a failure — they appear under 🔄 Renewals for a personal ask, and are never nagged automatically.</p>
         <p>6. Checks who received / opened previous emails and records it.</p>
@@ -51,11 +56,15 @@ export default function HelpPage() {
       </S>
 
       <S title="Nedarim Plus page — your recovery workbench">
-        <p>One row per bouncing donor, sorted by money at stake. The tabs mean:</p>
-        <p>🆕 <b>New</b> — just detected; first email goes out automatically. · ✉️ <b>Emailing</b> — automation in progress. ·
-        📞 <b>Call these</b> — email can&apos;t reach them (no address, unsubscribed, or 3 emails ignored) — this is your to-do list. ·
-        ⏸️ <b>Left out</b> — donors you excluded; automation won&apos;t touch them. · ✅ <b>Recovered</b> — fixed. · 🔄 <b>Renewals</b> — finished their commitment.</p>
-        <p>Row buttons: <b>WhatsApp</b> (pre-filled message) · <b>📞 Called</b> (log a call) · <b>⏸ Leave out</b> / <b>▶ Re-include</b> ·
+        <p>One row per bouncing donor, sorted by money at stake. The banner at the top always shows the current
+        sending mode. The tabs mean:</p>
+        <p>🆕 <b>New</b> — never emailed yet. · ✉️ <b>Emailed</b> — outreach under way. ·
+        📞 <b>Call these</b> — email can&apos;t reach them (no address, unsubscribed, or all emails ignored) — this is your to-do list. ·
+        ⏸️ <b>Left out</b> — donors you excluded; no emails at all. · ✅ <b>Recovered</b> — fixed. · 🔄 <b>Renewals</b> — finished their commitment.</p>
+        <p><b>To send emails yourself:</b> tick the checkboxes (the top box selects everyone reachable on the tab)
+        and press <b>✉️ Send email</b>, or use the ✉️ Email button on a single row. Each donor gets the bilingual
+        &quot;Payment issue&quot; email — one email per donor even with several orders.</p>
+        <p>Other row buttons: <b>WhatsApp</b> (pre-filled message) · <b>📞 Called</b> (log a call) · <b>⏸ Leave out</b> / <b>▶ Re-include</b> ·
         <b>✓ Resolve</b> · <b>✎ Note</b>. Click a donor&apos;s name to see their full history — every email, call and note.</p>
         <p><b>Lifetime given</b> comes from the real Nedarim payment history — use it to decide who deserves a personal call first.</p>
       </S>
@@ -70,12 +79,18 @@ export default function HelpPage() {
         </p>
       </S>
 
-      <S title="Categories">
+      <S title="Categories — labels AND treatment rules">
         <p>
           Your own labels (Parents, Alumni, VIP, Dinner 2026…). Create them on the Categories page,
           assign from a donor&apos;s card (click chips) or in bulk from the Donors grid (select rows → 🏷 assign).
           Then filter the grid by category — e.g. category &quot;VIP&quot; + status &quot;lapsed&quot; → bulk email exactly them.
         </p>
+        <p>
+          The Categories page also controls <b>how each group is treated</b>:
+        </p>
+        <p>• <b>Sending mode</b> (top of the page) — the master switch: ✋ Manual (you send everything yourself) or 🤖 Automatic (the system may send, following the rules below).</p>
+        <p>• <b>Per category:</b> 🤖 <b>Auto-email</b> (may be emailed automatically — you set &quot;follow up every N days, stop after M emails&quot;) · ✋ <b>Manual only</b> (never automatic) · 🚫 <b>Do not email</b> (never emailed at all — even bulk email skips them).</p>
+        <p>• A donor in several categories gets the <b>most careful</b> rule. Donors with no category follow the &quot;no category&quot; rule at the top of the page.</p>
       </S>
 
       <S title="Templates">
@@ -99,10 +114,11 @@ export default function HelpPage() {
 
       <S title="Safety rules built in">
         <p>• The connection to Nedarim Plus is <b>read-only</b> — enforced in code; it cannot modify, charge, freeze or delete anything there.</p>
-        <p>• A donor is emailed at most 3 times per problem, at least 7 days apart, <b>one email even if they have several standing orders</b>.</p>
-        <p>• Unsubscribed and &quot;left out&quot; donors are never emailed.</p>
+        <p>• <b>Nothing is ever sent automatically while sending mode is ✋ Manual</b> — the default.</p>
+        <p>• In 🤖 Automatic mode, a donor is emailed at most the number of times their category allows, at the spacing it sets, <b>one email even if they have several standing orders</b>.</p>
+        <p>• Unsubscribed, &quot;left out&quot;, and 🚫 do-not-email donors are never emailed — not even in bulk sends.</p>
         <p>• Donors who completed their commitment never get a &quot;payment problem&quot; email.</p>
-        <p>• Every automated action is logged on the donor&apos;s timeline.</p>
+        <p>• Every email and action is logged on the donor&apos;s timeline.</p>
       </S>
 
       <S title="If something looks wrong">

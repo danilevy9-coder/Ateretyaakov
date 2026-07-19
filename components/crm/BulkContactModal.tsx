@@ -25,7 +25,7 @@ export default function BulkContactModal({
   const [matchLang, setMatchLang] = useState(true);
   const [forceLang, setForceLang] = useState<'en' | 'he'>('en');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ sent: number; failed: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number; skipped: number; doNotContact?: number } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export default function BulkContactModal({
         };
       });
 
-      let sent = 0, failed = 0;
+      let sent = 0, failed = 0, doNotContact = 0;
       // send in chunks so we stay within serverless limits
       for (let i = 0; i < messages.length; i += 50) {
         const res = await fetch('/api/crm/send/email', {
@@ -84,9 +84,9 @@ export default function BulkContactModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Send failed');
-        sent += data.sent || 0; failed += data.failed || 0;
+        sent += data.sent || 0; failed += data.failed || 0; doNotContact += data.doNotContact || 0;
       }
-      setResult({ sent, failed, skipped: withoutEmail });
+      setResult({ sent, failed, skipped: withoutEmail, doNotContact });
       onSent?.();
     } catch (e) {
       setError(String(e));
@@ -146,7 +146,7 @@ export default function BulkContactModal({
           {error && <p className="text-red-300 text-sm">{error}</p>}
           {result && (
             <p className="text-emerald-300 text-sm bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-              ✓ Sent {result.sent}{result.failed > 0 ? `, ${result.failed} failed` : ''}{result.skipped > 0 ? `, ${result.skipped} skipped (no email)` : ''}
+              ✓ Sent {result.sent}{result.failed > 0 ? `, ${result.failed} failed` : ''}{result.skipped > 0 ? `, ${result.skipped} skipped (no email)` : ''}{(result.doNotContact ?? 0) > 0 ? `, ${result.doNotContact} skipped (🚫 do-not-email category)` : ''}
             </p>
           )}
 

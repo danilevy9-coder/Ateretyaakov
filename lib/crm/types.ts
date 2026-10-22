@@ -24,6 +24,7 @@ export interface Donor {
   last_name: string | null;
   full_name: string | null;
   hebrew_name: string | null;
+  latin_name?: string | null; // added in migration 0011
   email: string | null;
   phone: string | null;
   whatsapp_phone: string | null;

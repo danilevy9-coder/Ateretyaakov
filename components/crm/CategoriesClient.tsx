@@ -19,18 +19,24 @@ export interface Category {
   max_messages: number;
 }
 
-// A small palette that reads well on the dark theme.
+// A small palette for category chips.
 export const CATEGORY_COLORS = [
   '#f59e0b', '#38bdf8', '#34d399', '#f472b6', '#a78bfa',
   '#fb7185', '#facc15', '#4ade80', '#22d3ee', '#c084fc',
 ];
 
 export function CategoryChip({ cat, onClick, dim }: { cat: { name: string; color: string }; onClick?: () => void; dim?: boolean }) {
+  // Light theme: dark text with a coloured dot + tint, so every colour stays readable.
   const inner = (
     <span
-      className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
-      style={{ backgroundColor: cat.color + (dim ? '14' : '2b'), color: dim ? '#94a3b8' : cat.color }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-sm font-medium whitespace-nowrap border"
+      style={{
+        backgroundColor: cat.color + (dim ? '0d' : '26'),
+        borderColor: cat.color + (dim ? '40' : '99'),
+        color: dim ? '#94a3b8' : '#1e293b',
+      }}
     >
+      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color, opacity: dim ? 0.4 : 1 }} />
       {cat.name}
     </span>
   );

@@ -59,10 +59,56 @@ export function normalizePhone(raw?: string | null): string {
   return s;
 }
 
-// Build a wa.me click-to-chat link with a pre-filled message.
-export function waLink(phone: string, message: string): string {
-  const p = normalizePhone(phone);
-  return `https://wa.me/${p}?text=${encodeURIComponent(message)}`;
+// International number for WhatsApp (wa.me) — digits only, country code first.
+// Most numbers in this CRM are Israeli and stored in local format
+// (052-123-4567), which wa.me cannot open. Rules:
+//   +44 20…  / 0044 20…      → keep the country code as written (4420…)
+//   052-123-4567 / 02-…      → leading 0 becomes 972 (972521234567)
+//   52-123-4567 (9 digits, 5…) → Israeli mobile missing its 0 → 97252…
+//   (718) 555-1234 (10 digits) → North American number → 1718…
+//   972… / 1… / anything else → kept as is
+// NOTE: normalizePhone() above is deliberately left unchanged — the import
+// and the Nedarim sync use it to match donors by phone.
+export function waNumber(raw?: string | null): string {
+  if (!raw) return '';
+  const s = raw.trim();
+  const hadPlus = s.startsWith('+');
+  let d = s.replace(/\D/g, '');
+  if (!d) return '';
+  if (hadPlus) return d;
+  if (d.startsWith('00')) return d.slice(2);
+  if (d.startsWith('0')) return '972' + d.slice(1);
+  if (d.length === 9 && d.startsWith('5')) return '972' + d;
+  if (d.length === 10 && /^[2-9]/.test(d)) return '1' + d;
+  return d;
+}
+
+// tel: link that works from an Israeli phone and from abroad.
+export function telHref(raw?: string | null): string {
+  if (!raw) return '';
+  const s = raw.trim();
+  const d = s.replace(/\D/g, '');
+  if (!d) return '';
+  return 'tel:' + (s.startsWith('+') ? '+' + d : d);
+}
+
+// Build a wa.me click-to-chat link, with an optional pre-filled message.
+export function waLink(phone: string, message = ''): string {
+  const p = waNumber(phone);
+  return message
+    ? `https://wa.me/${p}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/${p}`;
+}
+
+// Digits-only "national" form used to compare phone numbers written in any
+// format: strips +972 / 00972 / leading 0, so 052-123 4567 and
+// +972 52 123 4567 both become 521234567.
+export function phoneKey(raw?: string | null): string {
+  let d = (raw || '').replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('972')) d = d.slice(3);
+  if (d.startsWith('0')) d = d.slice(1);
+  return d;
 }
 
 // ── Import value coercion ───────────────────────────────────────────

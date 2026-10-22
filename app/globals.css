@@ -281,3 +281,55 @@ body {
     display: none;
   }
 }
+
+
+/* ───────────────────────── CRM light theme ─────────────────────────
+   The CRM (/crm) used to be dark. Pages that were rewritten use light
+   classes directly; the rules below re-map the old dark utility classes
+   still used on the remaining CRM pages (Nedarim, Import, Templates,
+   Categories, Help, Login, contact modals) to a light, readable look.
+   Scoped to .crm-light, so the public website is untouched. */
+.crm-light { background-color: #f6f7f9; color: #0f172a; font-size: 16px; }
+.crm-light .text-white, .crm-light .hover\:text-white:hover { color: #0f172a; }
+.crm-light .text-slate-200, .crm-light .text-slate-300 { color: #1e293b; }
+.crm-light .text-slate-400, .crm-light .text-slate-500 { color: #475569; }
+.crm-light .text-slate-600 { color: #64748b; }
+.crm-light .text-amber-200, .crm-light .text-amber-300, .crm-light .text-amber-300\/80, .crm-light .text-amber-300\/70, .crm-light .text-amber-400, .crm-light .text-amber-400\/70 { color: #92400e; }
+.crm-light .text-emerald-200, .crm-light .text-emerald-300, .crm-light .text-emerald-300\/80 { color: #047857; }
+.crm-light .text-red-300, .crm-light .text-red-400, .crm-light .hover\:text-red-300:hover { color: #b91c1c; }
+.crm-light .text-sky-200, .crm-light .text-sky-300 { color: #0369a1; }
+.crm-light .text-violet-300 { color: #6d28d9; }
+.crm-light .text-fuchsia-300 { color: #a21caf; }
+
+.crm-light .bg-\[\#0d0e13\], .crm-light .bg-\[\#0b0c10\] { background-color: #ffffff; }
+.crm-light .bg-black\/40 { background-color: #ffffff; }
+.crm-light .bg-black\/60, .crm-light .bg-black\/70 { background-color: rgba(15, 23, 42, 0.35); }
+.crm-light .bg-white\/5, .crm-light .bg-white\/10, .crm-light .bg-white\/15 { background-color: #eef1f5; }
+.crm-light .bg-white\/\[0\.015\], .crm-light .bg-white\/\[0\.02\], .crm-light .bg-white\/\[0\.03\], .crm-light .bg-white\/\[0\.04\] { background-color: #ffffff; }
+.crm-light .hover\:bg-white\/5:hover, .crm-light .hover\:bg-white\/10:hover, .crm-light .hover\:bg-white\/\[0\.02\]:hover, .crm-light .hover\:bg-white\/\[0\.03\]:hover { background-color: #f1f5f9; }
+.crm-light .hover\:bg-white\/20:hover { background-color: #e2e8f0; }
+.crm-light .bg-amber-500\/10, .crm-light .bg-amber-500\/15, .crm-light .bg-amber-500\/5 { background-color: #fffbeb; }
+.crm-light .bg-amber-500\/20, .crm-light .hover\:bg-amber-500\/20:hover, .crm-light .hover\:bg-amber-500\/30:hover { background-color: #fef3c7; }
+.crm-light .bg-emerald-500\/10, .crm-light .bg-emerald-500\/15, .crm-light .bg-emerald-600\/20 { background-color: #ecfdf5; }
+.crm-light .hover\:bg-emerald-600\/30:hover { background-color: #d1fae5; }
+.crm-light .bg-red-500\/10, .crm-light .bg-red-500\/15 { background-color: #fef2f2; }
+.crm-light .hover\:bg-red-500\/20:hover { background-color: #fee2e2; }
+.crm-light .bg-sky-500\/10, .crm-light .bg-sky-500\/15 { background-color: #f0f9ff; }
+.crm-light .bg-sky-500\/\[0\.06\] { background-color: #f0f9ff; }
+.crm-light .bg-violet-500\/15 { background-color: #f5f3ff; }
+.crm-light .bg-fuchsia-500\/15 { background-color: #fdf4ff; }
+.crm-light .bg-slate-500\/15 { background-color: #f1f5f9; }
+
+.crm-light .border-white, .crm-light .border-white\/5, .crm-light .border-white\/10, .crm-light .border-white\/15 { border-color: #e2e8f0; }
+.crm-light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
+.crm-light .border-amber-500\/20, .crm-light .border-amber-500\/30, .crm-light .border-amber-500\/40, .crm-light .border-amber-500\/50 { border-color: #fcd34d; }
+.crm-light .border-emerald-500\/20, .crm-light .border-emerald-500\/30 { border-color: #6ee7b7; }
+.crm-light .border-red-500\/20 { border-color: #fca5a5; }
+.crm-light .border-sky-500\/20, .crm-light .border-sky-500\/30 { border-color: #7dd3fc; }
+
+/* form controls: dark text on white, visible borders */
+.crm-light input:not([type=checkbox]):not([type=radio]), .crm-light select, .crm-light textarea {
+  color: #0f172a; border-color: #cbd5e1;
+}
+.crm-light input::placeholder, .crm-light textarea::placeholder { color: #94a3b8; }
+.crm-light option { color: #0f172a; background: #fff; }

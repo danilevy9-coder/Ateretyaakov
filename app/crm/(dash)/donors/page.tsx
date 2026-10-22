@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export default function DonorsPage({
   searchParams,
 }: {
-  searchParams: { segment?: string; status?: string; type?: string; q?: string };
+  searchParams: { segment?: string; status?: string; type?: string; q?: string; label?: string };
 }) {
   return (
     <DonorsClient
@@ -13,6 +13,7 @@ export default function DonorsPage({
       initialStatus={searchParams.status}
       initialIssueType={searchParams.type}
       initialQuery={searchParams.q}
+      initialLabel={searchParams.label}
     />
   );
 }

@@ -10,9 +10,11 @@ import ContactButtons from './ContactButtons';
 import DonorDrawer from './DonorDrawer';
 import StudentDrawer from './StudentDrawer';
 import ContactModal from './ContactModal';
+import { LabelChip, studentLabelsAvailable, type Label } from './Labels';
 
 // One search box (top of every CRM page) that finds donors AND students by
-// Hebrew / English / Latin name, any phone format, email or city.
+// Hebrew / English / Latin name, any phone format, email or city — and labels
+// (typing "camp" offers the Campaign label with its count).
 
 export const donorName = (d: Pick<Donor, 'full_name' | 'first_name' | 'last_name'>) =>
   d.full_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim() || '—';
@@ -23,6 +25,7 @@ export default function GlobalSearch() {
   const [q, setQ] = useState('');
   const [donors, setDonors] = useState<Donor[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [labelHits, setLabelHits] = useState<{ label: Label; donors: number; students: number | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
@@ -33,7 +36,7 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setDonors([]); setStudents([]); setError(''); return; }
+    if (term.length < 2) { setDonors([]); setStudents([]); setLabelHits([]); setError(''); return; }
     const t = setTimeout(async () => {
       setLoading(true); setError('');
       try {
@@ -42,10 +45,22 @@ export default function GlobalSearch() {
           .order('last_gift_at', { ascending: false, nullsFirst: false }).limit(8);
         const sq = applySearch(supabase.from('students').select('*'), term, STUDENT_TEXT_FIELDS, STUDENT_PHONE_FIELDS)
           .order('full_name', { ascending: true }).limit(6);
-        const [d, s] = await Promise.all([dq, sq]);
+        const lq = supabase.from('categories').select('*').ilike('name', `%${term.replace(/[%_,()]/g, ' ')}%`).order('name').limit(5);
+        const [d, s, l] = await Promise.all([dq, sq, lq]);
         if (d.error) throw d.error;
         setDonors((d.data as Donor[]) ?? []);
         setStudents(s.error ? [] : ((s.data as Student[]) ?? []));
+        // Matching labels, each with how many donors (and students) carry it.
+        const labels = l.error ? [] : ((l.data as Label[]) ?? []);
+        const withStudents = labels.length ? await studentLabelsAvailable(supabase) : false;
+        const hits = await Promise.all(labels.map(async (label) => {
+          const dc = await supabase.from('donor_categories').select('category_id', { count: 'exact', head: true }).eq('category_id', label.id);
+          const sc = withStudents
+            ? await supabase.from('student_categories').select('category_id', { count: 'exact', head: true }).eq('category_id', label.id)
+            : null;
+          return { label, donors: dc.count ?? 0, students: sc ? (sc.count ?? 0) : null };
+        }));
+        setLabelHits(hits);
       } catch (e: any) {
         setError(e.message || String(e));
       } finally { setLoading(false); }
@@ -90,8 +105,31 @@ export default function GlobalSearch() {
         <div className="absolute left-0 right-0 mt-2 bg-[#fff] border border-slate-200 rounded-xl shadow-xl z-40 max-h-[70vh] overflow-y-auto">
           {error && <p className="px-4 py-3 text-sm text-[#b91c1c]">{error}</p>}
           {loading && <p className="px-4 py-3 text-sm text-slate-500">Searching…</p>}
-          {!loading && !error && donors.length === 0 && students.length === 0 && (
+          {!loading && !error && donors.length === 0 && students.length === 0 && labelHits.length === 0 && (
             <p className="px-4 py-3 text-[15px] text-slate-700">Nobody found for “{q.trim()}”.</p>
+          )}
+
+          {labelHits.length > 0 && (
+            <section>
+              <div className="px-4 pt-3 pb-1">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Labels</h3>
+              </div>
+              <ul>
+                {labelHits.map(({ label, donors: dn, students: sn }) => (
+                  <li key={label.id} className="px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 flex items-center gap-3 flex-wrap">
+                    <LabelChip label={label} />
+                    <a href={`/crm/donors?label=${label.id}`} className="text-[15px] text-sky-700 hover:underline">
+                      {dn.toLocaleString()} donor{dn === 1 ? '' : 's'}
+                    </a>
+                    {sn !== null && (
+                      <a href={`/crm/students?label=${label.id}`} className="text-[15px] text-sky-700 hover:underline">
+                        {sn.toLocaleString()} student{sn === 1 ? '' : 's'}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {donors.length > 0 && (

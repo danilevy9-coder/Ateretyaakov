@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
 import type { Donor } from '@/lib/crm/types';
-import { CategoryChip, type Category } from './CategoriesClient';
+import { type Category } from './CategoriesClient';
+import { LabelEditor, createLabel } from './Labels';
 import ContactButtons from './ContactButtons';
 
 // The donor's whole story on one screen: contact, address, Nedarim standing
-// orders, every gift, emails/WhatsApps already sent, notes, categories —
+// orders, every gift, emails/WhatsApps already sent, notes, labels —
 // with every field editable. Reads/writes only existing tables.
 
 interface Issue { id: string; type: string; status: string; amount: number | null; detail: string | null; detected_at: string; }
@@ -183,6 +184,13 @@ export default function DonorDrawer({
     onChanged();
   };
 
+  const createAndAddLabel = async (labelName: string) => {
+    const { label, error } = await createLabel(supabase, labelName, allCats);
+    if (error || !label) { setError(error || 'Could not create the label.'); return; }
+    if (!allCats.some((c) => c.id === label.id)) setAllCats((cs) => [...cs, label].sort((a, b) => a.name.localeCompare(b.name)));
+    if (!myCats.has(label.id)) await toggleCategory(label);
+  };
+
   const saveEdit = async () => {
     setError('');
     const orig = toForm(cur);
@@ -268,6 +276,10 @@ export default function DonorDrawer({
                   </span>
                 ))}
                 {cur.unsubscribed && <span className="px-2 py-0.5 rounded-md bg-[#fee2e2] text-[#991b1b]">Unsubscribed from email</span>}
+              </div>
+              {/* Labels: chips with ×, "+ Add label" to pick or create one */}
+              <div className="mt-2">
+                <LabelEditor labels={allCats} assigned={myCats} onToggle={toggleCategory} onCreate={createAndAddLabel} />
               </div>
             </div>
             <button onClick={onClose} className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 text-sm font-medium">Close</button>
@@ -506,21 +518,10 @@ export default function DonorDrawer({
             )}
           </Section>
 
-          {/* Categories */}
-          <Section title="Categories" action={<a href="/crm/categories" className="text-sm text-sky-700 hover:underline">Manage categories</a>}>
-            {allCats.length === 0 ? (
-              <p className="text-[15px] text-slate-600">No categories yet.</p>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-1.5">
-                  {allCats.map((c) => (
-                    <CategoryChip key={c.id} cat={c} dim={!myCats.has(c.id)} onClick={() => toggleCategory(c)} />
-                  ))}
-                </div>
-                <p className="text-sm text-slate-500 mt-2">Tap a category to add or remove this donor.</p>
-              </>
-            )}
-          </Section>
+          <p className="text-sm text-slate-500">
+            Labels (Fees, Donation, Campaign…) sit under the name at the top: “+ Add label” picks one or creates a new one, × removes it.{' '}
+            <a href="/crm/categories" className="text-sky-700 hover:underline">Manage labels</a>
+          </p>
 
           {cur.unsubscribed && (
             <div className="flex items-center justify-between bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2 text-[15px]">

@@ -31,16 +31,16 @@ export default function HelpPage() {
         </p>
         <p>
           <b>Who gets emailed, and when, is under your control.</b> The <b>Sending mode</b> switch on the
-          Categories page decides: <b>✋ Manual</b> (the default — nothing is ever emailed until you select
+          Labels page decides: <b>✋ Manual</b> (the default — nothing is ever emailed until you select
           donors and press Send) or <b>🤖 Automatic</b> (the system emails by itself, but only donors whose
-          category allows it, at the pace you set per category).
+          label allows it, at the pace you set per label).
         </p>
       </S>
 
       <S title="The automatic daily cycle (~8:00 AM Israel time)">
         <p>1. Pulls all standing orders + new payments from Nedarim Plus.</p>
         <p>2. <b>New card failure found</b> → opens a &quot;failed payment&quot; issue and shows the donor on the Nedarim Plus page.</p>
-        <p>3. <b>Emailing:</b> in ✋ Manual mode it sends nothing — you do it from the Nedarim Plus page. In 🤖 Automatic mode it emails donors in auto-email categories (bilingual, their language first, with the reason and a payment link), follows up at the pace set per category, then stops and puts them on your 📞 call list.</p>
+        <p>3. <b>Emailing:</b> in ✋ Manual mode it sends nothing — you do it from the Nedarim Plus page. In 🤖 Automatic mode it emails donors in auto-email labels (bilingual, their language first, with the reason and a payment link), follows up at the pace set per label, then stops and puts them on your 📞 call list.</p>
         <p>4. <b>Donor fixed it</b> (Nedarim charges successfully) → everything closes itself, donor marked active again. You do nothing.</p>
         <p>5. <b>Donor finished their committed months</b> → that is NOT a failure — they appear under 🔄 Renewals for a personal ask, and are never nagged automatically.</p>
         <p>6. Checks who received / opened previous emails and records it.</p>
@@ -71,26 +71,26 @@ export default function HelpPage() {
 
       <S title="Donors & Issues pages">
         <p>
-          The full donor list — search, filter (segment, status, category, issue type), sort, select many
-          with checkboxes for <b>bulk email</b> or <b>bulk category assignment</b>, export CSV. Click a name to
+          The full donor list — search, filter (segment, status, label, issue type), sort, select many
+          with checkboxes for <b>bulk email</b> or <b>bulk label assignment</b>, export CSV. Click a name to
           open the donor card: edit details, set language (controls which language their emails lead with),
-          assign categories, flag issues, add notes, see contributions. <b>Issues</b> is the same grid
+          assign labels, flag issues, add notes, see contributions. <b>Issues</b> is the same grid
           pre-filtered to donors needing attention.
         </p>
       </S>
 
-      <S title="Categories — labels AND treatment rules">
+      <S title="Labels — tags AND email rules">
         <p>
-          Your own labels (Parents, Alumni, VIP, Dinner 2026…). Create them on the Categories page,
+          Your own labels (Parents, Alumni, VIP, Dinner 2026…). Create them on the Labels page,
           assign from a donor&apos;s card (click chips) or in bulk from the Donors grid (select rows → 🏷 assign).
-          Then filter the grid by category — e.g. category &quot;VIP&quot; + status &quot;lapsed&quot; → bulk email exactly them.
+          Then filter the grid by label — e.g. label &quot;VIP&quot; + status &quot;lapsed&quot; → bulk email exactly them.
         </p>
         <p>
-          The Categories page also controls <b>how each group is treated</b>:
+          The Labels page also controls <b>how each group is treated</b>:
         </p>
         <p>• <b>Sending mode</b> (top of the page) — the master switch: ✋ Manual (you send everything yourself) or 🤖 Automatic (the system may send, following the rules below).</p>
-        <p>• <b>Per category:</b> 🤖 <b>Auto-email</b> (may be emailed automatically — you set &quot;follow up every N days, stop after M emails&quot;) · ✋ <b>Manual only</b> (never automatic) · 🚫 <b>Do not email</b> (never emailed at all — even bulk email skips them).</p>
-        <p>• A donor in several categories gets the <b>most careful</b> rule. Donors with no category follow the &quot;no category&quot; rule at the top of the page.</p>
+        <p>• <b>Per label:</b> 🤖 <b>Auto-email</b> (may be emailed automatically — you set &quot;follow up every N days, stop after M emails&quot;) · ✋ <b>Manual only</b> (never automatic) · 🚫 <b>Do not email</b> (never emailed at all — even bulk email skips them).</p>
+        <p>• A donor in several labels gets the <b>most careful</b> rule. Donors with no label follow the &quot;no label&quot; rule at the top of the page.</p>
       </S>
 
       <S title="Templates">
@@ -115,7 +115,7 @@ export default function HelpPage() {
       <S title="Safety rules built in">
         <p>• The connection to Nedarim Plus is <b>read-only</b> — enforced in code; it cannot modify, charge, freeze or delete anything there.</p>
         <p>• <b>Nothing is ever sent automatically while sending mode is ✋ Manual</b> — the default.</p>
-        <p>• In 🤖 Automatic mode, a donor is emailed at most the number of times their category allows, at the spacing it sets, <b>one email even if they have several standing orders</b>.</p>
+        <p>• In 🤖 Automatic mode, a donor is emailed at most the number of times their label allows, at the spacing it sets, <b>one email even if they have several standing orders</b>.</p>
         <p>• Unsubscribed, &quot;left out&quot;, and 🚫 do-not-email donors are never emailed — not even in bulk sends.</p>
         <p>• Donors who completed their commitment never get a &quot;payment problem&quot; email.</p>
         <p>• Every email and action is logged on the donor&apos;s timeline.</p>

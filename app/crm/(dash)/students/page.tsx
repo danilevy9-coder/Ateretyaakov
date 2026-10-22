@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export default function StudentsPage({
   searchParams,
 }: {
-  searchParams: { status?: string };
+  searchParams: { status?: string; label?: string };
 }) {
-  return <StudentsClient initialStatus={searchParams.status} />;
+  return <StudentsClient initialStatus={searchParams.status} initialLabel={searchParams.label} />;
 }

@@ -13,7 +13,7 @@ const links = [
   { href: '/crm/students', label: 'Students', hint: 'Yeshiva & tuition' },
   { href: '/crm/issues', label: 'Needs attention', hint: 'Open issues' },
   { href: '/crm/nedarim', label: 'Nedarim payments', hint: 'Standing orders, bounces' },
-  { href: '/crm/categories', label: 'Categories', hint: 'Groups & lists' },
+  { href: '/crm/categories', label: 'Labels', hint: 'Fees, Campaign, Devora…' },
   { href: '/crm/templates', label: 'Message templates', hint: 'Email / WhatsApp texts' },
   { href: '/crm/import', label: 'Import', hint: 'Upload a spreadsheet' },
   { href: '/crm/help', label: 'Help', hint: 'How this works' },

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol, waLink, normalizePhone } from '@/lib/crm/util';
 import ContactButtons from './ContactButtons';
 import type { Student, StudentPayment } from '@/lib/crm/types';
+import { type Category } from './CategoriesClient';
+import { LabelEditor, createLabel, studentLabelsAvailable } from './Labels';
 
 interface Note { id: string; body: string; created_at: string; }
 
@@ -36,6 +38,10 @@ export default function StudentDrawer({
   const [noteText, setNoteText] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  // Labels — shown once the student_categories table exists (labels.sql).
+  const [labelsOn, setLabelsOn] = useState(false);
+  const [allCats, setAllCats] = useState<Category[]>([]);
+  const [myCats, setMyCats] = useState<Set<string>>(new Set());
 
   // New-payment form
   const [pay, setPay] = useState({ period: firstOfMonth(), amount_due: 0, amount_paid: 0, method: '' });
@@ -55,6 +61,38 @@ export default function StudentDrawer({
     ]);
     setPayments((p.data as any) ?? []);
     setNotes((n.data as any) ?? []);
+    if (await studentLabelsAvailable(supabase)) {
+      const [c, mine] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('student_categories').select('category_id').eq('student_id', student.id),
+      ]);
+      if (!mine.error) {
+        setAllCats((c.data as Category[]) ?? []);
+        setMyCats(new Set(((mine.data as any[]) ?? []).map((r) => r.category_id)));
+        setLabelsOn(true);
+      }
+    }
+  };
+
+  const toggleLabel = async (cat: Category) => {
+    if (!student) return;
+    const has = myCats.has(cat.id);
+    const { error } = has
+      ? await supabase.from('student_categories').delete().eq('student_id', student.id).eq('category_id', cat.id)
+      : await supabase.from('student_categories').insert({ student_id: student.id, category_id: cat.id });
+    if (error) { setError(error.message); return; }
+    setMyCats((prev) => {
+      const next = new Set(prev);
+      if (has) next.delete(cat.id); else next.add(cat.id);
+      return next;
+    });
+    onChanged();
+  };
+  const createAndAddLabel = async (labelName: string) => {
+    const { label, error } = await createLabel(supabase, labelName, allCats);
+    if (error || !label) { setError(error || 'Could not create the label.'); return; }
+    if (!allCats.some((c) => c.id === label.id)) setAllCats((cs) => [...cs, label].sort((a, b) => a.name.localeCompare(b.name)));
+    if (!myCats.has(label.id)) await toggleLabel(label);
   };
   useEffect(() => { load(); setPay((x) => ({ ...x, amount_due: Number(student?.monthly_tuition ?? 0) })); /* eslint-disable-next-line */ }, [student?.id]);
 
@@ -154,6 +192,11 @@ export default function StudentDrawer({
               <h2 className="text-2xl font-bold text-slate-900">{isNew ? 'New student' : composeName()}</h2>
               {!isNew && form.hebrew_name && <p className="text-lg text-slate-700 font-hebrew text-left" dir="rtl">{form.hebrew_name}</p>}
               {!isNew && owed > 0 && <p className="text-[15px] text-[#b45309] font-semibold mt-1">Tuition owed: {fmtMoney(owed, sym)}</p>}
+              {!isNew && labelsOn && (
+                <div className="mt-2">
+                  <LabelEditor labels={allCats} assigned={myCats} onToggle={toggleLabel} onCreate={createAndAddLabel} />
+                </div>
+              )}
             </div>
             <button onClick={onClose} className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 text-sm font-medium">Close</button>
           </div>

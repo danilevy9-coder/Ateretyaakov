@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
+import { applySearch, DONOR_TEXT_FIELDS, DONOR_PHONE_FIELDS } from '@/lib/crm/search';
+import ContactButtons from './ContactButtons';
 import type { Donor, DonorSegment } from '@/lib/crm/types';
 import DonorDrawer from './DonorDrawer';
 import ContactModal from './ContactModal';
@@ -14,18 +16,20 @@ const PAGE_SIZE = 50;
 
 const SEGMENT_LABEL: Record<DonorSegment, string> = {
   monthly_regular: 'Monthly',
-  campaign_oneoff: 'Campaign·once',
-  campaign_monthly: 'Campaign·monthly',
+  campaign_oneoff: 'Campaign, once',
+  campaign_monthly: 'Campaign, monthly',
   other: 'Other',
 };
-const SEGMENT_COLOR: Record<DonorSegment, string> = {
-  monthly_regular: 'bg-sky-500/15 text-sky-300',
-  campaign_oneoff: 'bg-violet-500/15 text-violet-300',
-  campaign_monthly: 'bg-fuchsia-500/15 text-fuchsia-300',
-  other: 'bg-slate-500/15 text-slate-300',
+const ISSUE_LABEL: Record<string, string> = {
+  failed_payment: 'Card failed', lapsed: 'Lapsed', unfulfilled_pledge: 'Pledge unpaid', manual: 'Flagged',
+};
+const fmtDate = (s?: string | null) => {
+  if (!s) return '';
+  const d = new Date(s.length === 10 ? s + 'T12:00:00' : s);
+  return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-type SortKey = 'full_name' | 'total_pledged' | 'total_paid' | 'balance' | 'last_gift_at' | 'created_at';
+type SortKey = 'full_name' | 'monthly_amount' | 'total_paid' | 'balance' | 'last_gift_at' | 'created_at';
 type Row = Donor & {
   donor_issues?: { type: string; status: string }[];
   donor_categories?: { category_id: string }[];
@@ -36,9 +40,10 @@ interface Props {
   initialStatus?: string;
   initialIssueType?: string;
   onlyIssues?: boolean;
+  initialQuery?: string;
 }
 
-export default function DonorsClient({ initialSegment, initialStatus, initialIssueType, onlyIssues }: Props) {
+export default function DonorsClient({ initialSegment, initialStatus, initialIssueType, onlyIssues, initialQuery }: Props) {
   const supabase = createClient();
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -47,8 +52,9 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [qInput, setQInput] = useState('');
-  const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState(initialQuery || '');
+  const [q, setQ] = useState(initialQuery || '');
+  const [lastPaid, setLastPaid] = useState<Map<string, string>>(new Map());
   const [segment, setSegment] = useState(initialSegment || '');
   const [status, setStatus] = useState(initialStatus || '');
   const [issueType, setIssueType] = useState(initialIssueType || '');
@@ -77,10 +83,8 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     if (categoryFilter) query = query.eq('donor_categories.category_id', categoryFilter);
     if (segment) query = query.eq('segment', segment);
     if (status) query = query.eq('status', status);
-    if (q.trim()) {
-      const term = `%${q.trim()}%`;
-      query = query.or(`full_name.ilike.${term},email.ilike.${term},phone.ilike.${term},last_name.ilike.${term}`);
-    }
+    // Hebrew / English / Latin names, any phone format, email, city.
+    query = applySearch(query, q, DONOR_TEXT_FIELDS, DONOR_PHONE_FIELDS);
     return query;
   }, [segment, status, issueType, q, categoryFilter]);
 
@@ -102,8 +106,15 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       const { data, count: c, error } = await query;
       if (error) throw error;
-      setRows((data as any) ?? []);
+      const list = ((data as any) ?? []) as Row[];
+      setRows(list);
       setCount(c ?? 0);
+      // Latest Nedarim charge per donor (real "last gift"), via the existing RPC.
+      if (list.length) {
+        const { data: stats } = await supabase.rpc('nedarim_donor_payment_stats', { donor_ids: list.map((r) => r.id) });
+        setLastPaid(new Map(((stats ?? []) as { donor_id: string; last_paid: string | null }[])
+          .filter((x) => x.last_paid).map((x) => [x.donor_id, x.last_paid as string])));
+      }
     } catch (e: any) {
       setError(e.message || String(e));
       setRows([]);
@@ -113,6 +124,8 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   }, [supabase, applyFilters, issuesOnly, issueType, sort, asc, page]);
 
   useEffect(() => { load(); }, [load]);
+  // Arriving from the top search bar's "See all matching donors".
+  useEffect(() => { if (initialQuery !== undefined) setQInput(initialQuery); }, [initialQuery]);
   // Debounce the search box so we don't query on every keystroke.
   useEffect(() => { const t = setTimeout(() => setQ(qInput.trim()), 350); return () => clearTimeout(t); }, [qInput]);
   useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, categoryFilter]);
@@ -243,178 +256,180 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
+  const selCls = 'bg-[#fff] border border-slate-300 rounded-lg px-3 py-2 text-[15px] text-slate-900';
+  const btnLight = 'px-4 py-2 rounded-lg border border-slate-300 bg-[#fff] hover:bg-slate-50 text-[15px] text-slate-800 font-medium disabled:opacity-50';
+  const sortBtn = (key: SortKey, label: string) => (
+    <button onClick={() => toggleSort(key)} className="font-semibold hover:text-slate-900">{label}{sortIcon(key)}</button>
+  );
+
   return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{onlyIssues ? 'Issues' : 'Donors'}</h1>
-          <p className="text-slate-400 text-sm">{count.toLocaleString()} records</p>
+          <h1 className="text-3xl font-bold text-slate-900">{onlyIssues ? 'Needs attention' : 'Donors'}</h1>
+          <p className="text-slate-600 text-[15px]">{count.toLocaleString()} {onlyIssues ? 'donors with an open issue' : 'donors'}{q ? ` matching “${q}”` : ''}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportCsv} disabled={selectingAll}
-            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 text-sm">
-            {selectingAll ? 'Exporting…' : `⬇ Export CSV${selected.size > 0 ? ` (${selected.size})` : ''}`}
+          <button onClick={exportCsv} disabled={selectingAll} className={btnLight}>
+            {selectingAll ? 'Exporting…' : `Download Excel/CSV${selected.size > 0 ? ` (${selected.size})` : ''}`}
           </button>
-          <a href="/crm/import" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">📥 Import</a>
+          <a href="/crm/import" className={btnLight}>Import a sheet</a>
         </div>
       </div>
 
       <HelpBox>
         {onlyIssues ? (
           <>
-            <p>Donors that need attention, by problem type: <b>failed payment</b> (card bounced — handled automatically by the
+            <p>Donors that need attention, by problem type: <b>card failed</b> (handled by the
             <a href="/crm/nedarim" className="underline"> Nedarim page</a>), <b>lapsed</b> (stopped giving / finished their commitment),
-            <b> unfulfilled pledge</b>, and <b>manual flags</b> you set yourself.</p>
-            <p>Click a name for details; resolve an issue there when it&apos;s handled. Select rows with checkboxes to email many at once.</p>
+            <b> pledge unpaid</b>, and <b>flags</b> you set yourself.</p>
+            <p>Tap a name for the full donor page; mark the issue resolved there when it&apos;s handled.</p>
           </>
         ) : (
           <>
-            <p><b>Search</b> by name/email/phone · <b>filter</b> by segment, status, category or issue · click a column header to <b>sort</b> · click a <b>name</b> to open the full donor card (edit details, categories, notes, issues, language).</p>
-            <p><b>Do things in bulk:</b> tick checkboxes (or &quot;Select all matching&quot; after filtering) → the amber bar lets you email everyone selected or assign/remove a 🏷 category.</p>
-            <p><b>Export CSV</b> downloads the current selection (or the whole filtered list). Language EN/HE on each donor controls which language their emails lead with.</p>
+            <p><b>Search</b> by Hebrew or English name, any phone format, email or city. <b>Filter</b> by type, status, category or issue. Tap a column title to <b>sort</b>.</p>
+            <p>Tap a <b>name</b> to open the donor page (contact, Nedarim, gifts, messages, notes — all editable). <b>Call / WhatsApp / Email</b> work in one tap.</p>
+            <p><b>Bulk:</b> tick boxes (or &quot;Select all matching&quot;) to email everyone selected or add them to a category. <b>Download</b> exports the selection (or the whole filtered list).</p>
           </>
         )}
       </HelpBox>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search name, email, phone…"
-          className="flex-1 min-w-[220px] bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50" />
-        <select value={segment} onChange={(e) => setSegment(e.target.value)} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
-          <option value="">All segments</option>
+        <input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Search name (עברית / English), phone, email, city…"
+          className="flex-1 min-w-[260px] bg-[#fff] border border-slate-300 rounded-lg px-3 py-2 text-[16px] text-slate-900 focus:outline-none focus:border-slate-600" />
+        <select value={segment} onChange={(e) => setSegment(e.target.value)} className={selCls} aria-label="Type of donor">
+          <option value="">Any type</option>
           <option value="monthly_regular">Monthly regulars</option>
-          <option value="campaign_oneoff">Campaign — one-off</option>
-          <option value="campaign_monthly">Campaign — monthly</option>
+          <option value="campaign_oneoff">Campaign, one-off</option>
+          <option value="campaign_monthly">Campaign, monthly</option>
           <option value="other">Other</option>
         </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
-          <option value="">All statuses</option>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selCls} aria-label="Status">
+          <option value="">Any status</option>
           <option value="active">Active</option>
           <option value="lapsed">Lapsed</option>
           <option value="inactive">Inactive</option>
         </select>
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
-          <option value="">All categories</option>
-          {cats.map((c) => <option key={c.id} value={c.id}>🏷 {c.name}</option>)}
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selCls} aria-label="Category">
+          <option value="">Any category</option>
+          {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select value={issueType} onChange={(e) => { setIssueType(e.target.value); if (e.target.value) setIssuesOnly(true); }}
-          className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm">
+        <select value={issueType} onChange={(e) => { setIssueType(e.target.value); if (e.target.value) setIssuesOnly(true); }} className={selCls} aria-label="Issue">
           <option value="">Any issue</option>
-          <option value="unfulfilled_pledge">Unfulfilled pledge</option>
+          <option value="failed_payment">Card failed</option>
           <option value="lapsed">Lapsed</option>
-          <option value="failed_payment">Failed payment</option>
-          <option value="manual">Manual flag</option>
+          <option value="unfulfilled_pledge">Pledge unpaid</option>
+          <option value="manual">Flagged by you</option>
         </select>
-        <label className="flex items-center gap-2 text-sm text-slate-300 px-2">
-          <input type="checkbox" checked={issuesOnly} onChange={(e) => setIssuesOnly(e.target.checked)} />
-          Open issues only
+        <label className="flex items-center gap-2 text-[15px] text-slate-800 px-2">
+          <input type="checkbox" className="w-4 h-4" checked={issuesOnly} onChange={(e) => setIssuesOnly(e.target.checked)} />
+          Only open issues
         </label>
       </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex-wrap">
-          <div className="text-sm text-amber-200">
+        <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-300 flex-wrap">
+          <div className="text-[15px] text-amber-950">
             <strong>{selected.size}</strong> selected
             {selected.size < count && (
-              <button onClick={selectAllMatching} disabled={selectingAll} className="ml-3 underline hover:text-amber-100">
+              <button onClick={selectAllMatching} disabled={selectingAll} className="ml-3 underline">
                 {selectingAll ? 'selecting…' : `Select all ${count.toLocaleString()} matching`}
               </button>
             )}
-            <button onClick={clearSelection} className="ml-3 underline hover:text-amber-100">Clear</button>
+            <button onClick={clearSelection} className="ml-3 underline">Clear</button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {cats.length > 0 && (
               <>
-                <select value={bulkCat} onChange={(e) => setBulkCat(e.target.value)}
-                  className="bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
-                  <option value="">🏷 Category…</option>
+                <select value={bulkCat} onChange={(e) => setBulkCat(e.target.value)} className={selCls} aria-label="Category for selected">
+                  <option value="">Category…</option>
                   {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <button onClick={() => bulkCategory('add')} disabled={!bulkCat || catBusy}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-sm">
-                  {catBusy ? '…' : '+ Assign'}
+                <button onClick={() => bulkCategory('add')} disabled={!bulkCat || catBusy} className={btnLight}>
+                  {catBusy ? '…' : 'Add to category'}
                 </button>
-                <button onClick={() => bulkCategory('remove')} disabled={!bulkCat || catBusy}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 text-sm">
-                  − Remove
+                <button onClick={() => bulkCategory('remove')} disabled={!bulkCat || catBusy} className={btnLight}>
+                  Remove
                 </button>
               </>
             )}
             <button onClick={() => setBulkOpen(true)}
-              className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
-              ✉ Email {selected.size} selected
+              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-[#fff] font-semibold text-[15px]">
+              Email {selected.size} selected
             </button>
           </div>
         </div>
       )}
 
-      {error && <div className="text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">{error}</div>}
+      {error && <div className="text-[#991b1b] text-[15px] bg-[#fef2f2] border border-[#fecaca] rounded-lg px-4 py-3 mb-4">{error}</div>}
 
-      {/* Table */}
-      <div className="border border-white/10 rounded-xl overflow-x-auto">
-        <table className="w-full text-sm min-w-[860px]">
-          <thead className="bg-white/5 text-slate-400 text-xs uppercase">
+      {/* Table: Name · Phone/WhatsApp · Monthly · Last gift · Status · Contact */}
+      <div className="border border-slate-200 rounded-xl overflow-x-auto bg-[#fff]">
+        <table className="w-full text-[15px] min-w-[880px]">
+          <thead className="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
             <tr>
-              <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={pageAllSelected} onChange={togglePage} /></th>
-              <th className="text-left px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('full_name')}>Name{sortIcon('full_name')}</th>
-              <th className="text-left px-4 py-2.5">Contact</th>
-              <th className="text-left px-4 py-2.5">Segment</th>
-              <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('total_pledged')}>Pledged{sortIcon('total_pledged')}</th>
-              <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('total_paid')}>Paid{sortIcon('total_paid')}</th>
-              <th className="text-right px-4 py-2.5 cursor-pointer" onClick={() => toggleSort('balance')}>Balance{sortIcon('balance')}</th>
-              <th className="text-right px-4 py-2.5">Monthly</th>
-              <th className="text-left px-4 py-2.5">Issues</th>
-              <th className="text-right px-4 py-2.5">Actions</th>
+              <th className="px-3 py-3 w-8"><input type="checkbox" className="w-4 h-4" checked={pageAllSelected} onChange={togglePage} aria-label="Select page" /></th>
+              <th className="text-left px-4 py-3">{sortBtn('full_name', 'Name')}</th>
+              <th className="text-left px-4 py-3">Phone / WhatsApp</th>
+              <th className="text-right px-4 py-3">{sortBtn('monthly_amount', 'Monthly')}</th>
+              <th className="text-left px-4 py-3">{sortBtn('last_gift_at', 'Last gift')}</th>
+              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-right px-4 py-3">Contact</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-slate-500">No donors found. Try importing a file.</td></tr>}
+            {loading && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-600">No donors found{q ? ` for “${q}”` : ''}.</td></tr>}
             {!loading && rows.map((d) => {
               const sym = currencySymbol(d.currency);
               const openIssues = (d.donor_issues || []).filter((i) => i.status === 'open');
               const name = d.full_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim() || '—';
+              const nedarimLast = lastPaid.get(d.id) ?? null;
+              const last = [d.last_gift_at, nedarimLast].filter(Boolean).sort().pop() ?? null;
+              const wa = d.whatsapp_phone && d.whatsapp_phone !== d.phone ? d.whatsapp_phone : null;
               return (
-                <tr key={d.id} className={`border-t border-white/5 hover:bg-white/[0.03] ${selected.has(d.id) ? 'bg-amber-500/5' : ''}`}>
-                  <td className="px-3 py-2.5"><input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleRow(d)} /></td>
-                  <td className="px-4 py-2.5">
-                    <button onClick={() => setDetail(d)} className="text-white hover:text-amber-300 font-medium text-left">{name}</button>
+                <tr key={d.id} className={`border-t border-slate-100 hover:bg-slate-50 ${selected.has(d.id) ? 'bg-amber-50' : ''}`}>
+                  <td className="px-3 py-3"><input type="checkbox" className="w-4 h-4" checked={selected.has(d.id)} onChange={() => toggleRow(d)} aria-label={`Select ${name}`} /></td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => setDetail(d)} className="text-left group">
+                      <span className="block font-semibold text-slate-900 group-hover:underline">{name}</span>
+                      {d.hebrew_name && <span className="block text-slate-600 font-hebrew text-left" dir="rtl">{d.hebrew_name}</span>}
+                      {(d.donor_categories?.length ?? 0) > 0 && (
+                        <span className="flex flex-wrap gap-1 mt-1">
+                          {d.donor_categories!.map((l) => {
+                            const c = cats.find((x) => x.id === l.category_id);
+                            return c ? <CategoryChip key={c.id} cat={c} /> : null;
+                          })}
+                        </span>
+                      )}
+                    </button>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-400">
-                    <div className="truncate max-w-[200px]">{d.email || <span className="opacity-40">no email</span>}</div>
-                    <div className="text-xs text-slate-500">{d.phone || ''}</div>
+                  <td className="px-4 py-3 text-slate-800 whitespace-nowrap" dir="ltr">
+                    {d.phone || <span className="text-[#94a3b8]">no phone</span>}
+                    {wa && <span className="block text-sm text-slate-500">WhatsApp {wa}</span>}
+                    {d.city && <span className="block text-sm text-slate-500">{d.city}</span>}
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`px-2 py-0.5 rounded text-xs ${SEGMENT_COLOR[d.segment]}`}>{SEGMENT_LABEL[d.segment]}</span>
-                    {(d.donor_categories?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {d.donor_categories!.map((l) => {
-                          const c = cats.find((x) => x.id === l.category_id);
-                          return c ? <CategoryChip key={c.id} cat={c} /> : null;
-                        })}
-                      </div>
-                    )}
+                  <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                    {d.monthly_amount ? fmtMoney(d.monthly_amount, sym) : <span className="text-[#94a3b8] font-normal">—</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_pledged, sym)}</td>
-                  <td className="px-4 py-2.5 text-right text-slate-300">{fmtMoney(d.total_paid, sym)}</td>
-                  <td className={`px-4 py-2.5 text-right ${d.balance > 0 ? 'text-amber-300' : 'text-slate-500'}`}>{fmtMoney(d.balance, sym)}</td>
-                  <td className="px-4 py-2.5 text-right text-sky-300">{d.monthly_amount ? fmtMoney(d.monthly_amount, sym) + '/mo' : <span className="text-slate-600">—</span>}</td>
-                  <td className="px-4 py-2.5">
-                    {openIssues.length === 0 ? <span className="text-slate-600">—</span> : (
-                      <div className="flex flex-wrap gap-1">
-                        {Array.from(new Set(openIssues.map((i) => i.type))).map((t) => (
-                          <span key={t} className="px-1.5 py-0.5 rounded text-xs bg-amber-500/15 text-amber-300">{t.replace('_', ' ')}</span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => setContactDonor(d)} title="Contact"
-                        className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-xs">✉ / 💬</button>
+                  <td className="px-4 py-3 text-slate-800 whitespace-nowrap">{last ? fmtDate(last) : <span className="text-[#94a3b8]">—</span>}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      <span className={`px-2 py-0.5 rounded-md text-sm ${d.status === 'active' ? 'bg-emerald-100 text-emerald-900' : 'bg-slate-100 text-slate-700'}`}>
+                        {d.status === 'active' ? 'Active' : d.status === 'lapsed' ? 'Lapsed' : 'Inactive'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md text-sm bg-slate-100 text-slate-700">{SEGMENT_LABEL[d.segment] ?? d.segment}</span>
+                      {Array.from(new Set(openIssues.map((i) => i.type))).map((t) => (
+                        <span key={t} className={`px-2 py-0.5 rounded-md text-sm font-medium ${t === 'failed_payment' ? 'bg-[#fee2e2] text-[#991b1b]' : 'bg-amber-100 text-amber-900'}`}>
+                          {ISSUE_LABEL[t] ?? t}
+                        </span>
+                      ))}
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ContactButtons phone={d.phone} whatsapp={d.whatsapp_phone} email={d.email} className="justify-end" />
                   </td>
                 </tr>
               );
@@ -424,11 +439,11 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between mt-4 text-sm">
-        <span className="text-slate-500">Page {page + 1} of {totalPages}</span>
+      <div className="flex items-center justify-between mt-4 text-[15px]">
+        <span className="text-slate-600">Page {page + 1} of {totalPages}</span>
         <div className="flex gap-2">
-          <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40">← Prev</button>
-          <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40">Next →</button>
+          <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className={btnLight}>Previous</button>
+          <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)} className={btnLight}>Next</button>
         </div>
       </div>
 

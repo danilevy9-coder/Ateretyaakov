@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fmtMoney, currencySymbol, waLink, normalizePhone } from '@/lib/crm/util';
+import ContactButtons from './ContactButtons';
 import type { Student, StudentPayment } from '@/lib/crm/types';
 
 interface Note { id: string; body: string; created_at: string; }
@@ -146,10 +147,28 @@ export default function StudentDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-lg h-full bg-[#0d0e13] border-l border-white/10 overflow-y-auto">
-        <div className="sticky top-0 bg-[#0d0e13] border-b border-white/10 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-bold text-white">{isNew ? 'New student' : composeName()}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl">✕</button>
+      <div className="relative w-full max-w-2xl h-full bg-[#fff] border-l border-slate-200 overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-[#fff] border-b border-slate-200 px-6 py-4 z-10">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">{isNew ? 'New student' : composeName()}</h2>
+              {!isNew && form.hebrew_name && <p className="text-lg text-slate-700 font-hebrew text-left" dir="rtl">{form.hebrew_name}</p>}
+              {!isNew && owed > 0 && <p className="text-[15px] text-[#b45309] font-semibold mt-1">Tuition owed: {fmtMoney(owed, sym)}</p>}
+            </div>
+            <button onClick={onClose} className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 text-sm font-medium">Close</button>
+          </div>
+          {!isNew && (form.parent_phone || form.parent_email || form.parent_whatsapp) && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Parent{form.parent_name ? `: ${form.parent_name}` : ''}</p>
+              <ContactButtons phone={form.parent_phone} whatsapp={form.parent_whatsapp} email={form.parent_email} size="md" />
+              {(form.parent2_phone || form.parent2_email) && (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mt-2 mb-1">Second parent{form.parent2_name ? `: ${form.parent2_name}` : ''}</p>
+                  <ContactButtons phone={form.parent2_phone} email={form.parent2_email} size="md" />
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="p-6 space-y-6">
@@ -157,40 +176,40 @@ export default function StudentDrawer({
           {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
 
           {/* Details */}
-          <section className="space-y-2 text-sm">
+          <section className="space-y-3 text-[15px]">
             <div className="grid grid-cols-2 gap-2">
-              <input value={f('first_name')} onChange={(e) => set('first_name', e.target.value)} placeholder="First name" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
-              <input value={f('last_name')} onChange={(e) => set('last_name', e.target.value)} placeholder="Last name" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">First name</span><input value={f('first_name')} onChange={(e) => set('first_name', e.target.value)} placeholder="First name" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Last name</span><input value={f('last_name')} onChange={(e) => set('last_name', e.target.value)} placeholder="Last name" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             </div>
-            <input value={f('hebrew_name')} onChange={(e) => set('hebrew_name', e.target.value)} placeholder="Hebrew name" dir="rtl" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+            <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Hebrew name</span><input value={f('hebrew_name')} onChange={(e) => set('hebrew_name', e.target.value)} placeholder="Hebrew name" dir="rtl" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             <div className="grid grid-cols-2 gap-2">
-              <select value={f('status')} onChange={(e) => set('status', e.target.value)} className="bg-black/40 border border-white/10 rounded-lg px-2 py-2">
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Status</span><select value={f('status')} onChange={(e) => set('status', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-2">
                 <option value="enrolled">Enrolled</option><option value="applicant">Applicant</option>
                 <option value="alumni">Alumni</option><option value="withdrawn">Withdrawn</option>
-              </select>
-              <input value={f('enrolled_on')} onChange={(e) => set('enrolled_on', e.target.value)} placeholder="Enrolled on (YYYY-MM-DD)" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+              </select></label>
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Enrolled on (YYYY-MM-DD)</span><input value={f('enrolled_on')} onChange={(e) => set('enrolled_on', e.target.value)} placeholder="Enrolled on (YYYY-MM-DD)" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input value={f('class_shiur')} onChange={(e) => set('class_shiur', e.target.value)} placeholder="Class / shiur" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
-              <input value={f('grade')} onChange={(e) => set('grade', e.target.value)} placeholder="Grade" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Class / shiur</span><input value={f('class_shiur')} onChange={(e) => set('class_shiur', e.target.value)} placeholder="Class / shiur" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Grade</span><input value={f('grade')} onChange={(e) => set('grade', e.target.value)} placeholder="Grade" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={f('monthly_tuition')} onChange={(e) => set('monthly_tuition', Number(e.target.value))} placeholder="Monthly tuition" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
-              <input value={f('currency')} onChange={(e) => set('currency', e.target.value)} placeholder="Currency (USD)" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Monthly tuition</span><input type="number" value={f('monthly_tuition')} onChange={(e) => set('monthly_tuition', Number(e.target.value))} placeholder="Monthly tuition" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Currency (USD)</span><input value={f('currency')} onChange={(e) => set('currency', e.target.value)} placeholder="Currency (USD)" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             </div>
 
-            <p className="text-slate-400 text-xs pt-2">Parent / guardian</p>
-            <input value={f('parent_name')} onChange={(e) => set('parent_name', e.target.value)} placeholder="Parent name" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+            <p className="text-slate-900 text-[15px] font-bold pt-3">Parent / guardian</p>
+            <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Parent name</span><input value={f('parent_name')} onChange={(e) => set('parent_name', e.target.value)} placeholder="Parent name" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             <div className="grid grid-cols-2 gap-2">
-              <input value={f('parent_phone')} onChange={(e) => set('parent_phone', e.target.value)} placeholder="Parent phone" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
-              <input value={f('parent_email')} onChange={(e) => set('parent_email', e.target.value)} placeholder="Parent email" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Parent phone</span><input value={f('parent_phone')} onChange={(e) => set('parent_phone', e.target.value)} placeholder="Parent phone" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
+              <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Parent email</span><input value={f('parent_email')} onChange={(e) => set('parent_email', e.target.value)} placeholder="Parent email" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
             </div>
-            <input value={f('parent_whatsapp')} onChange={(e) => set('parent_whatsapp', e.target.value)} placeholder="Parent WhatsApp (if different)" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" />
+            <label className="block"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Parent WhatsApp (if different)</span><input value={f('parent_whatsapp')} onChange={(e) => set('parent_whatsapp', e.target.value)} placeholder="Parent WhatsApp (if different)" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" /></label>
 
             <div className="flex items-center gap-3 pt-1">
-              <button onClick={save} className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">{isNew ? 'Create student' : 'Save'}</button>
+              <button onClick={save} className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-[#fff] font-semibold text-[15px]">{isNew ? 'Create student' : 'Save'}</button>
               {!isNew && (
-                <button onClick={() => setShowContact((v) => !v)} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm">✉ / 💬 Contact parent</button>
+                <button onClick={() => setShowContact((v) => !v)} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm">Write to parent from the CRM…</button>
               )}
             </div>
           </section>

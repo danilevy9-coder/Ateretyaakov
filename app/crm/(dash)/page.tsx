@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { fmtMoney, currencySymbol } from '@/lib/crm/util';
 import HelpBox from '@/components/crm/HelpBox';
+import TodayClient from '@/components/crm/TodayClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,79 +22,56 @@ async function getStats(): Promise<Stats> {
   return data as Stats;
 }
 
-function Stat({ label, value, href, accent }: { label: string; value: string | number; href?: string; accent?: string }) {
+function Stat({ label, value, href, tone }: { label: string; value: string | number; href?: string; tone?: 'red' | 'green' | 'amber' }) {
+  const color = tone === 'red' ? 'text-[#b91c1c]' : tone === 'green' ? 'text-emerald-800' : tone === 'amber' ? 'text-[#b45309]' : 'text-slate-900';
   const inner = (
-    <div className={`rounded-xl border border-white/10 bg-white/[0.03] p-5 ${href ? 'hover:border-amber-500/40 hover:bg-white/[0.05] transition-colors' : ''}`}>
-      <p className="text-slate-400 text-xs uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${accent ?? 'text-white'}`}>{value}</p>
+    <div className={`rounded-xl border border-slate-200 bg-[#fff] px-4 py-3 h-full ${href ? 'hover:border-slate-400 transition-colors' : ''}`}>
+      <p className="text-sm text-slate-600">{label}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
   return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 export default async function Dashboard() {
-  let stats;
+  let stats: Stats | undefined;
   let error: string | null = null;
   try {
     stats = await getStats();
   } catch (e) {
     error = String(e);
   }
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Jerusalem' });
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl">
-      <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
-      <p className="text-slate-400 text-sm mb-4">Overview of donors, issues and the yeshiva.</p>
+    <div className="p-4 md:p-8 max-w-7xl">
+      <h1 className="text-3xl font-bold text-slate-900">Today</h1>
+      <p className="text-slate-600 text-[16px] mb-4">{today}</p>
 
       <HelpBox>
-        <p>Every card is clickable and jumps to the filtered list behind the number.</p>
-        <p><b>Failed payments</b> are managed automatically by the <a href="/crm/nedarim" className="underline">Nedarim Plus</a> page —
-        bouncing donors are emailed for you; check there (or your Sunday report email) to see who needs a personal call.</p>
-        <p>New to this system? Start with the <a href="/crm/help" className="underline">❓ Help page</a> — it explains everything in plain language.</p>
+        <p><b>Call today</b> lists donors whose Nedarim card is failing (biggest amounts first). <b>Renewals due</b> are standing orders that just finished or are about to.</p>
+        <p>Every row has one-tap <b>Call</b>, <b>WhatsApp</b> and <b>Email</b>. Tap a name to open the full page for that person.</p>
+        <p>Use the search box at the top to find anyone by Hebrew or English name, phone (any format), email or city.</p>
       </HelpBox>
 
       {error && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 mb-8">
-          <p className="text-amber-300 font-semibold text-sm mb-1">Database not reachable yet</p>
-          <p className="text-amber-200/70 text-xs">
-            Once the schema is applied and env vars are set, stats will appear here. ({error})
-          </p>
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-6 text-[15px] text-amber-950">
+          Totals couldn&apos;t load right now ({error}).
         </div>
       )}
 
       {stats && (
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Donors</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="Total donors" value={stats.donors} href="/crm/donors" />
-              <Stat label="Monthly regulars" value={stats.monthly} href="/crm/donors?segment=monthly_regular" />
-              <Stat label="Campaign — one-off" value={stats.campaignOnce} href="/crm/donors?segment=campaign_oneoff" />
-              <Stat label="Campaign — monthly" value={stats.campaignMonthly} href="/crm/donors?segment=campaign_monthly" />
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Open issues</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="All open" value={stats.openIssues} href="/crm/issues" accent="text-amber-300" />
-              <Stat label="Unfulfilled pledges" value={stats.unfulfilled} href="/crm/issues?type=unfulfilled_pledge" accent="text-amber-300" />
-              <Stat label="Lapsed" value={stats.lapsed} href="/crm/issues?type=lapsed" accent="text-amber-300" />
-              <Stat label="Failed payments" value={stats.failed} href="/crm/issues?type=failed_payment" accent="text-red-300" />
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Money</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="Total raised" value={fmtMoney(stats.totalPaid, currencySymbol(stats.currency))} accent="text-emerald-300" />
-              <Stat label="Monthly recurring" value={fmtMoney(stats.monthlyRecurring, currencySymbol(stats.currency))} accent="text-sky-300" />
-              <Stat label="Outstanding owed" value={fmtMoney(stats.outstanding, currencySymbol(stats.currency))} accent={stats.outstanding > 0 ? 'text-amber-300' : 'text-slate-300'} />
-              <Stat label="Students" value={stats.students} href="/crm/students" />
-            </div>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+          <Stat label="Donors" value={stats.donors.toLocaleString()} href="/crm/donors" />
+          <Stat label="Monthly regulars" value={stats.monthly.toLocaleString()} href="/crm/donors?segment=monthly_regular" />
+          <Stat label="Monthly income" value={fmtMoney(stats.monthlyRecurring, currencySymbol(stats.currency))} tone="green" />
+          <Stat label="Cards failing" value={stats.failed} href="/crm/issues?type=failed_payment" tone={stats.failed > 0 ? 'red' : undefined} />
+          <Stat label="Open issues" value={stats.openIssues} href="/crm/issues" tone={stats.openIssues > 0 ? 'amber' : undefined} />
+          <Stat label="Students" value={stats.students} href="/crm/students" />
         </div>
       )}
+
+      <TodayClient />
     </div>
   );
 }

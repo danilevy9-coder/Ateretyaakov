@@ -1,12 +1,18 @@
 /**
  * End-to-end browser test of the CRM against the local dev server.
- * Run: node scripts/e2e.mjs   (dev server must be on http://localhost:3001)
+ * Run: CRM_E2E_EMAIL=you@example.com CRM_E2E_PASSWORD=… node scripts/e2e.mjs
+ *      (dev server must be on http://localhost:3001)
+ * Credentials come from the environment — never commit a password here.
  */
 import { chromium } from '@playwright/test';
 
 const BASE = 'http://localhost:3001';
-const EMAIL = 'danilevy9@gmail.com';
-const PASS = 'Danidev456..789';
+const EMAIL = process.env.CRM_E2E_EMAIL;
+const PASS = process.env.CRM_E2E_PASSWORD;
+if (!EMAIL || !PASS) {
+  console.error('Set CRM_E2E_EMAIL and CRM_E2E_PASSWORD to run the e2e test.');
+  process.exit(1);
+}
 
 let pass = 0, fail = 0;
 const results = [];
@@ -34,7 +40,7 @@ try {
   const body = await page.locator('body').innerText();
   ok('dashboard shows donor count 4,224', /4,?224/.test(body), body.match(/[\d,]+/)?.[0]);
   ok('dashboard shows ₪ currency', body.includes('₪'));
-  ok('dashboard shows Failed payments label', /failed payments/i.test(body));
+  ok('dashboard shows Cards failing label', /cards failing|failed payments/i.test(body));
 
   // ── 3. Donors grid ──
   await page.goto(`${BASE}/crm/donors`, { waitUntil: 'networkidle' });

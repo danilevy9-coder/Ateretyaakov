@@ -92,10 +92,10 @@ const dt = (s: string | null | undefined) => (s ? s.slice(0, 16).replace('T', ' 
 const bucketMeta = (mode: OutreachMode): Record<Bucket, { label: string; hint: string; color: string }> => ({
   new:      { label: '🆕 New',        hint: mode === 'manual'
                 ? 'Just detected — tick the boxes and press “Send email” to reach out'
-                : 'Just detected — auto-email categories get their first email on the next sync', color: 'text-sky-300' },
+                : 'Just detected — auto-email labels get their first email on the next sync', color: 'text-sky-300' },
   emailing: { label: '✉️ Emailed',    hint: mode === 'manual'
                 ? 'Already emailed at least once — follow up from here when enough time has passed'
-                : 'Recovery emails in progress (per the category rules)',                          color: 'text-amber-300' },
+                : 'Recovery emails in progress (per the label rules)',                          color: 'text-amber-300' },
   call:     { label: '📞 Call these', hint: 'Email can’t reach them — needs your personal touch',  color: 'text-red-300' },
   left_out: { label: '⏸️ Left out',   hint: 'You excluded them — no emails, manual or automatic',  color: 'text-slate-400' },
 });
@@ -402,15 +402,15 @@ export default function NedarimClient() {
         mode === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
         {mode === 'manual'
           ? <span><b>✋ Manual sending</b> — nothing goes out automatically. Select donors below and press “Send email”.</span>
-          : <span><b>🤖 Automatic sending</b> — the daily sync emails donors in 🤖 auto-email categories, at the pace set per category.</span>}
-        <a href="/crm/categories" className="underline opacity-80 hover:opacity-100">Change in Categories →</a>
+          : <span><b>🤖 Automatic sending</b> — the daily sync emails donors in 🤖 auto-email labels, at the pace set per label.</span>}
+        <a href="/crm/categories" className="underline opacity-80 hover:opacity-100">Change in Labels →</a>
       </div>
 
       <HelpBox>
         <p>This page recovers failed monthly donations. Every morning it checks Nedarim Plus (read-only — it can
         never change or charge anything there), detects cards that failed, and closes everything by itself when
         the payment recovers. <b>Whether it also emails the donors is up to you:</b> the banner above shows the
-        current sending mode, set on the <a href="/crm/categories">Categories</a> page.</p>
+        current sending mode, set on the <a href="/crm/categories">Labels</a> page.</p>
         <p><b>To email donors yourself:</b> tick the boxes (or the top box for everyone), press
         <b> ✉️ Send email</b> — each donor gets the bilingual &quot;Payment issue&quot; email, once per donor even with
         several orders. The count next to each donor shows how many they&apos;ve received; sending again before the
@@ -497,7 +497,7 @@ export default function NedarimClient() {
                       <td className="px-3 py-3">
                         {row.canEmail
                           ? <input type="checkbox" checked={sel.has(row.donorId!)} onChange={() => toggleOne(row.donorId!)} />
-                          : <span className="text-slate-600" title={row.rule.policy === 'none' ? 'Do-not-email category' : row.donor?.unsubscribed ? 'Unsubscribed' : row.bucket === 'left_out' ? 'Left out' : 'No email address'}>—</span>}
+                          : <span className="text-slate-600" title={row.rule.policy === 'none' ? 'Do-not-email label' : row.donor?.unsubscribed ? 'Unsubscribed' : row.bucket === 'left_out' ? 'Left out' : 'No email address'}>—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => toggleExpand(row)} className="text-left">
@@ -674,8 +674,8 @@ export default function NedarimClient() {
 
       <p className="text-slate-500 text-xs leading-relaxed">
         Daily sync ~8:00 Israel time · weekly digest Sunday · one email per donor across all their orders,
-        never to unsubscribed, left-out, or 🚫 do-not-email donors. Sending mode and per-category follow-up
-        rules are set on the <a href="/crm/categories" className="underline">Categories</a> page; wording under{' '}
+        never to unsubscribed, left-out, or 🚫 do-not-email donors. Sending mode and per-label follow-up
+        rules are set on the <a href="/crm/categories" className="underline">Labels</a> page; wording under{' '}
         <a href="/crm/templates" className="underline">Templates</a>.
       </p>
     </div>

@@ -9,7 +9,8 @@ import type { Donor, DonorSegment } from '@/lib/crm/types';
 import DonorDrawer from './DonorDrawer';
 import ContactModal from './ContactModal';
 import BulkContactModal from './BulkContactModal';
-import { CategoryChip, type Category } from './CategoriesClient';
+import { type Category } from './CategoriesClient';
+import { LabelChip, LabelEditor, createLabel, loadLabelsWithCounts } from './Labels';
 import HelpBox from './HelpBox';
 
 const PAGE_SIZE = 50;
@@ -41,9 +42,11 @@ interface Props {
   initialIssueType?: string;
   onlyIssues?: boolean;
   initialQuery?: string;
+  /** Label id or name, e.g. /crm/donors?label=Campaign */
+  initialLabel?: string;
 }
 
-export default function DonorsClient({ initialSegment, initialStatus, initialIssueType, onlyIssues, initialQuery }: Props) {
+export default function DonorsClient({ initialSegment, initialStatus, initialIssueType, onlyIssues, initialQuery, initialLabel }: Props) {
   const supabase = createClient();
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -60,7 +63,10 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   const [issueType, setIssueType] = useState(initialIssueType || '');
   const [issuesOnly, setIssuesOnly] = useState(!!onlyIssues || !!initialIssueType);
   const [cats, setCats] = useState<Category[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [labelCounts, setLabelCounts] = useState<Map<string, number>>(new Map());
+  // Label filter: one or more label ids; "all" = has every chosen label, "any" = has at least one.
+  const [labelFilter, setLabelFilter] = useState<string[]>([]);
+  const [labelMatch, setLabelMatch] = useState<'all' | 'any'>('all');
   const [bulkCat, setBulkCat] = useState('');
   const [catBusy, setCatBusy] = useState(false);
 
@@ -80,19 +86,25 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       query = query.eq('donor_issues.status', 'open');
       if (issueType) query = query.eq('donor_issues.type', issueType);
     }
-    if (categoryFilter) query = query.eq('donor_categories.category_id', categoryFilter);
+    if (labelFilter.length) {
+      if (labelMatch === 'any' || labelFilter.length === 1) query = query.in('lf0.category_id', labelFilter);
+      else labelFilter.forEach((id, i) => { query = query.eq(`lf${i}.category_id`, id); });
+    }
     if (segment) query = query.eq('segment', segment);
     if (status) query = query.eq('status', status);
     // Hebrew / English / Latin names, any phone format, email, city.
     query = applySearch(query, q, DONOR_TEXT_FIELDS, DONOR_PHONE_FIELDS);
     return query;
-  }, [segment, status, issueType, q, categoryFilter]);
+  }, [segment, status, issueType, q, labelFilter, labelMatch]);
 
-  // Category embed becomes an inner join while filtering by category.
-  const catEmbed = useCallback(
-    () => `donor_categories${categoryFilter ? '!inner' : ''}(category_id)`,
-    [categoryFilter]
-  );
+  // Labels always come back in full (for the chips); filtering uses separate
+  // aliased inner joins (lf0, lf1…) so a filtered row still shows all its labels.
+  const catEmbed = useCallback(() => {
+    const parts = ['donor_categories(category_id)'];
+    const n = labelFilter.length === 0 ? 0 : (labelMatch === 'any' ? 1 : labelFilter.length);
+    for (let i = 0; i < n; i++) parts.push(`lf${i}:donor_categories!inner(category_id)`);
+    return parts.join(', ');
+  }, [labelFilter, labelMatch]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,12 +140,57 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   useEffect(() => { if (initialQuery !== undefined) setQInput(initialQuery); }, [initialQuery]);
   // Debounce the search box so we don't query on every keystroke.
   useEffect(() => { const t = setTimeout(() => setQ(qInput.trim()), 350); return () => clearTimeout(t); }, [qInput]);
-  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, categoryFilter]);
-  useEffect(() => {
-    supabase.from('categories').select('*').order('name')
-      .then(({ data }) => setCats((data as Category[]) ?? []));
+  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, labelFilter, labelMatch]);
+  const loadLabels = useCallback(async () => {
+    const { labels, donorCounts } = await loadLabelsWithCounts(supabase);
+    setCats(labels);
+    setLabelCounts(donorCounts);
+    return labels;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    loadLabels().then((labels) => {
+      // Arriving from a link like /crm/donors?label=Campaign (id or name).
+      if (!initialLabel) return;
+      const want = initialLabel.trim().toLowerCase();
+      const hit = labels.find((l) => l.id === initialLabel || l.name.toLowerCase() === want);
+      if (hit) setLabelFilter([hit.id]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLabel]);
+
+  const toggleLabelFilter = (id: string) =>
+    setLabelFilter((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+
+  // Add / remove one label on one donor, right from the list.
+  const toggleRowLabel = async (d: Row, label: Category) => {
+    const has = (d.donor_categories ?? []).some((l) => l.category_id === label.id);
+    const { error } = has
+      ? await supabase.from('donor_categories').delete().eq('donor_id', d.id).eq('category_id', label.id)
+      : await supabase.from('donor_categories').insert({ donor_id: d.id, category_id: label.id });
+    if (error) { setError(error.message); return; }
+    setRows((rs) => rs.map((r) => (r.id !== d.id ? r : {
+      ...r,
+      donor_categories: has
+        ? (r.donor_categories ?? []).filter((l) => l.category_id !== label.id)
+        : [...(r.donor_categories ?? []), { category_id: label.id }],
+    })));
+    setLabelCounts((m) => new Map(m).set(label.id, Math.max(0, (m.get(label.id) ?? 0) + (has ? -1 : 1))));
+  };
+  const createAndAddRowLabel = async (d: Row, name: string) => {
+    const { label, error } = await createLabel(supabase, name, cats);
+    if (error || !label) { setError(error || 'Could not create the label.'); return; }
+    if (!cats.some((c) => c.id === label.id)) setCats((cs) => [...cs, label].sort((a, b) => a.name.localeCompare(b.name)));
+    if (!(d.donor_categories ?? []).some((l) => l.category_id === label.id)) await toggleRowLabel(d, label);
+  };
+  const createBulkLabel = async () => {
+    const name = window.prompt('New label name (e.g. Fees, Donation, Campaign, Devora):');
+    if (!name || !name.trim()) return;
+    const { label, error } = await createLabel(supabase, name, cats);
+    if (error || !label) { setError(error || 'Could not create the label.'); return; }
+    if (!cats.some((c) => c.id === label.id)) setCats((cs) => [...cs, label].sort((a, b) => a.name.localeCompare(b.name)));
+    setBulkCat(label.id);
+  };
 
   const toggleSort = (key: SortKey) => {
     if (sort === key) setAsc((v) => !v);
@@ -211,7 +268,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       const catsOf = (d: any) =>
         ((d.donor_categories ?? []) as { category_id: string }[])
           .map((l) => catName.get(l.category_id)).filter(Boolean).join('; ');
-      const lines = [[...cols.map((c) => c[0]), 'Categories'].join(',')];
+      const lines = [[...cols.map((c) => c[0]), 'Labels'].join(',')];
       for (const d of list) lines.push([...cols.map((c) => esc((d as any)[c[1]])), esc(catsOf(d))].join(','));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -225,7 +282,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     }
   };
 
-  // Assign / remove a category for every selected donor.
+  // Assign / remove a label for every selected donor.
   const bulkCategory = async (mode: 'add' | 'remove') => {
     if (!bulkCat || selected.size === 0) return;
     setCatBusy(true);
@@ -247,6 +304,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
         }
       }
       load();
+      loadLabels();
     } catch (e: any) {
       setError(e.message || String(e));
     } finally {
@@ -287,9 +345,10 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           </>
         ) : (
           <>
-            <p><b>Search</b> by Hebrew or English name, any phone format, email or city. <b>Filter</b> by type, status, category or issue. Tap a column title to <b>sort</b>.</p>
+            <p><b>Search</b> by Hebrew or English name, any phone format, email or city. <b>Filter</b> by type, status, issue or <b>label</b> (tap label chips; pick several to narrow down). Tap a column title to <b>sort</b>.</p>
+            <p><b>Labels</b> (Fees, Donation, Campaign…): tap <b>+ label</b> on any row to add one or type a new one; tap × on a chip to remove it.</p>
             <p>Tap a <b>name</b> to open the donor page (contact, Nedarim, gifts, messages, notes — all editable). <b>Call / WhatsApp / Email</b> work in one tap.</p>
-            <p><b>Bulk:</b> tick boxes (or &quot;Select all matching&quot;) to email everyone selected or add them to a category. <b>Download</b> exports the selection (or the whole filtered list).</p>
+            <p><b>Bulk:</b> tick boxes (or &quot;Select all matching&quot;) to email everyone selected or add / remove a label for all of them. <b>Download</b> exports the selection (or the whole filtered list).</p>
           </>
         )}
       </HelpBox>
@@ -311,10 +370,6 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <option value="lapsed">Lapsed</option>
           <option value="inactive">Inactive</option>
         </select>
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selCls} aria-label="Category">
-          <option value="">Any category</option>
-          {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
         <select value={issueType} onChange={(e) => { setIssueType(e.target.value); if (e.target.value) setIssuesOnly(true); }} className={selCls} aria-label="Issue">
           <option value="">Any issue</option>
           <option value="failed_payment">Card failed</option>
@@ -327,6 +382,36 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           Only open issues
         </label>
       </div>
+
+      {/* Label filter: tap chips; counts = donors carrying each label */}
+      {cats.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4" aria-label="Filter by label">
+          <span className="text-[15px] font-semibold text-slate-700 mr-1">Labels:</span>
+          {cats.map((c) => (
+            <LabelChip
+              key={c.id}
+              label={c}
+              count={labelCounts.get(c.id) ?? 0}
+              active={labelFilter.includes(c.id)}
+              onClick={() => toggleLabelFilter(c.id)}
+              title={labelFilter.includes(c.id) ? `Stop filtering by ${c.name}` : `Show only donors labelled ${c.name}`}
+            />
+          ))}
+          {labelFilter.length > 1 && (
+            <span className="flex items-center gap-1 ml-2 text-sm text-slate-700">
+              Show donors with
+              <select value={labelMatch} onChange={(e) => setLabelMatch(e.target.value as 'all' | 'any')} className="bg-[#fff] border border-slate-300 rounded-md px-1.5 py-0.5 text-sm" aria-label="Match all or any label">
+                <option value="all">all of these</option>
+                <option value="any">any of these</option>
+              </select>
+            </span>
+          )}
+          {labelFilter.length > 0 && (
+            <button onClick={() => setLabelFilter([])} className="ml-2 text-sm text-sky-700 hover:underline">Clear labels</button>
+          )}
+          <a href="/crm/categories" className="ml-auto text-sm text-sky-700 hover:underline">Manage labels</a>
+        </div>
+      )}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
@@ -341,20 +426,22 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
             <button onClick={clearSelection} className="ml-3 underline">Clear</button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {cats.length > 0 && (
-              <>
-                <select value={bulkCat} onChange={(e) => setBulkCat(e.target.value)} className={selCls} aria-label="Category for selected">
-                  <option value="">Category…</option>
-                  {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <button onClick={() => bulkCategory('add')} disabled={!bulkCat || catBusy} className={btnLight}>
-                  {catBusy ? '…' : 'Add to category'}
-                </button>
-                <button onClick={() => bulkCategory('remove')} disabled={!bulkCat || catBusy} className={btnLight}>
-                  Remove
-                </button>
-              </>
-            )}
+            <select
+              value={bulkCat}
+              onChange={(e) => { if (e.target.value === '__new') createBulkLabel(); else setBulkCat(e.target.value); }}
+              className={selCls}
+              aria-label="Label for selected"
+            >
+              <option value="">Label…</option>
+              {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="__new">+ New label…</option>
+            </select>
+            <button onClick={() => bulkCategory('add')} disabled={!bulkCat || catBusy} className={btnLight}>
+              {catBusy ? '…' : 'Add label'}
+            </button>
+            <button onClick={() => bulkCategory('remove')} disabled={!bulkCat || catBusy} className={btnLight}>
+              Remove label
+            </button>
             <button onClick={() => setBulkOpen(true)}
               className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-[#fff] font-semibold text-[15px]">
               Email {selected.size} selected
@@ -371,7 +458,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <thead className="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
             <tr>
               <th className="px-3 py-3 w-8"><input type="checkbox" className="w-4 h-4" checked={pageAllSelected} onChange={togglePage} aria-label="Select page" /></th>
-              <th className="text-left px-4 py-3">{sortBtn('full_name', 'Name')}</th>
+              <th className="text-left px-4 py-3">{sortBtn('full_name', 'Name · labels')}</th>
               <th className="text-left px-4 py-3">Phone / WhatsApp</th>
               <th className="text-right px-4 py-3">{sortBtn('monthly_amount', 'Monthly')}</th>
               <th className="text-left px-4 py-3">{sortBtn('last_gift_at', 'Last gift')}</th>
@@ -396,15 +483,16 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
                     <button onClick={() => setDetail(d)} className="text-left group">
                       <span className="block font-semibold text-slate-900 group-hover:underline">{name}</span>
                       {d.hebrew_name && <span className="block text-slate-600 font-hebrew text-left" dir="rtl">{d.hebrew_name}</span>}
-                      {(d.donor_categories?.length ?? 0) > 0 && (
-                        <span className="flex flex-wrap gap-1 mt-1">
-                          {d.donor_categories!.map((l) => {
-                            const c = cats.find((x) => x.id === l.category_id);
-                            return c ? <CategoryChip key={c.id} cat={c} /> : null;
-                          })}
-                        </span>
-                      )}
                     </button>
+                    <div className="mt-1 min-w-[260px] max-w-[340px]">
+                      <LabelEditor
+                        compact
+                        labels={cats}
+                        assigned={new Set((d.donor_categories ?? []).map((l) => l.category_id))}
+                        onToggle={(l) => toggleRowLabel(d, l)}
+                        onCreate={(n) => createAndAddRowLabel(d, n)}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-slate-800 whitespace-nowrap" dir="ltr">
                     {d.phone || <span className="text-[#94a3b8]">no phone</span>}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import HelpBox from './HelpBox';
+import { loadLabelsWithCounts } from './Labels';
 import {
   FALLBACK_RULE,
   type OutreachMode,
@@ -49,7 +50,7 @@ const POLICY_OPTIONS: { value: OutreachPolicy; label: string; hint: string }[] =
   { value: 'none',   label: '🚫 Do not email', hint: 'Never emailed at all — skipped even in bulk email' },
 ];
 
-// The treatment controls for one rule (a category, or the no-category default).
+// The treatment controls for one rule (a label, or the no-label default).
 function RuleEditor({ rule, onChange }: { rule: TreatmentRule; onChange: (r: TreatmentRule) => void }) {
   const num = (v: string, fallback: number) => {
     const n = parseInt(v, 10);
@@ -92,6 +93,7 @@ export default function CategoriesClient() {
   const supabase = createClient();
   const [cats, setCats] = useState<Category[]>([]);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const [studentCounts, setStudentCounts] = useState<Map<string, number> | null>(null);
   const [mode, setMode] = useState<OutreachMode>('manual');
   const [defaultRule, setDefaultRule] = useState<TreatmentRule>({ ...FALLBACK_RULE });
   const [name, setName] = useState('');
@@ -101,15 +103,15 @@ export default function CategoriesClient() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [{ data }, { data: links }, { data: settings }] = await Promise.all([
-      supabase.from('categories').select('*').order('name'),
-      supabase.from('donor_categories').select('category_id'),
+    // Counts come from the database (not by downloading every link row, which
+    // stopped counting at 1,000).
+    const [withCounts, { data: settings }] = await Promise.all([
+      loadLabelsWithCounts(supabase),
       supabase.from('crm_settings').select('key, value').in('key', ['outreach_mode', 'default_treatment']),
     ]);
-    setCats((data as Category[]) ?? []);
-    const map = new Map<string, number>();
-    for (const l of links ?? []) map.set(l.category_id, (map.get(l.category_id) ?? 0) + 1);
-    setCounts(map);
+    setCats(withCounts.labels);
+    setCounts(withCounts.donorCounts);
+    setStudentCounts(withCounts.studentCounts);
     for (const s of settings ?? []) {
       if (s.key === 'outreach_mode') setMode(s.value === 'auto' ? 'auto' : 'manual');
       if (s.key === 'default_treatment' && s.value && typeof s.value === 'object') {
@@ -157,14 +159,14 @@ export default function CategoriesClient() {
     const trimmed = name.trim();
     if (!trimmed) return;
     const { error } = await supabase.from('categories').insert({ name: trimmed, color });
-    if (error) { setErr(error.message.includes('duplicate') ? 'A category with that name already exists.' : error.message); return; }
+    if (error) { setErr(error.message.includes('duplicate') ? 'A label with that name already exists.' : error.message); return; }
     setName('');
     setColor(CATEGORY_COLORS[(cats.length + 1) % CATEGORY_COLORS.length]);
     load();
   };
 
   const rename = async (cat: Category) => {
-    const next = window.prompt('Rename category:', cat.name);
+    const next = window.prompt('Rename label:', cat.name);
     if (!next || next.trim() === cat.name) return;
     const { error } = await supabase.from('categories').update({ name: next.trim() }).eq('id', cat.id);
     if (error) setErr(error.message);
@@ -178,30 +180,36 @@ export default function CategoriesClient() {
 
   const remove = async (cat: Category) => {
     const n = counts.get(cat.id) ?? 0;
-    if (!confirm(`Delete "${cat.name}"?${n ? ` It will be removed from ${n} donor(s).` : ''}`)) return;
+    const sn = studentCounts?.get(cat.id) ?? 0;
+    const from = [n ? `${n} donor(s)` : '', sn ? `${sn} student(s)` : ''].filter(Boolean).join(' and ');
+    if (!confirm(`Delete the label "${cat.name}"?${from ? ` It will be removed from ${from}.` : ''}`)) return;
     await supabase.from('categories').delete().eq('id', cat.id);
     load();
   };
 
   return (
     <div className="p-6 md:p-8 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-1">Categories</h1>
+      <h1 className="text-2xl font-bold mb-1">Labels</h1>
       <p className="text-slate-400 text-sm mb-6">
-        Label your donors, then decide <b className="text-slate-200">how each group is treated</b> — who the
-        system may email by itself, how often, and who is only ever contacted by you.
+        Tag donors{studentCounts ? ' and students' : ''} with labels like <b className="text-slate-200">Fees, Donation, Campaign, Devora</b> — as many
+        as you like per person. Tap a label&apos;s count to see everyone who has it. Each label can also decide
+        <b className="text-slate-200"> how that group is emailed</b>.
       </p>
 
       <HelpBox>
         <p><b>Sending mode</b> is the master switch. <b>✋ Manual</b> (recommended): the system never emails anyone
         by itself — you pick donors on the Recovery page (or Donors grid) and press Send. <b>🤖 Automatic</b>:
-        the system sends payment-recovery emails by itself, but <b>only</b> to donors whose category below says
+        the system sends payment-recovery emails by itself, but <b>only</b> to donors whose label below says
         &quot;Auto-email&quot;, at the pace you set.</p>
-        <p><b>Each category has a treatment:</b> 🤖 Auto-email (with &quot;every N days, stop after M emails&quot;) ·
+        <p><b>Adding labels:</b> on the Donors list tap <b>+ label</b> under a name, or on a donor&apos;s page tap
+        <b> + Add label</b>. Type a new name to create a label on the spot. Tap × on a chip to remove it.
+        Filter the Donors list by tapping label chips above the table.</p>
+        <p><b>Each label has an email treatment:</b> 🤖 Auto-email (with &quot;every N days, stop after M emails&quot;) ·
         ✋ Manual only (never automatic) · 🚫 Do not email (blocked everywhere, even bulk email). If a donor has
-        several categories, the <b>most careful</b> one wins. Donors with no category follow the
-        &quot;no category&quot; rule at the top.</p>
-        <p><b>Assign categories</b> from a donor&apos;s card (click the chips) or in bulk from the Donors grid
-        (select rows → 🏷). Unsubscribed donors are never emailed, in any mode.</p>
+        several labels, the <b>most careful</b> one wins. Donors with no label follow the
+        &quot;no label&quot; rule at the top. A label created on the fly copies the &quot;no label&quot; rule, so
+        tagging someone doesn&apos;t change how they&apos;re emailed.</p>
+        <p><b>In bulk:</b> on the Donors grid tick rows → choose a label → Add label. Unsubscribed donors are never emailed, in any mode.</p>
       </HelpBox>
 
       {(err || saved) && (
@@ -213,7 +221,7 @@ export default function CategoriesClient() {
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-white text-sm">Sending mode:</span>
           <div className="flex rounded-lg overflow-hidden border border-white/10">
-            {([['manual', '✋ Manual — I choose who gets emailed'], ['auto', '🤖 Automatic — follow the category rules']] as [OutreachMode, string][]).map(([m, label]) => (
+            {([['manual', '✋ Manual — I choose who gets emailed'], ['auto', '🤖 Automatic — follow the label rules']] as [OutreachMode, string][]).map(([m, label]) => (
               <button key={m} onClick={() => setModeAndSave(m)}
                 className={`px-3 py-1.5 text-sm transition-colors ${mode === m ? 'bg-amber-500 text-black font-semibold' : 'bg-transparent text-slate-400 hover:bg-white/5'}`}>
                 {label}
@@ -224,13 +232,13 @@ export default function CategoriesClient() {
         <p className="text-xs text-slate-500 mt-2">
           {mode === 'manual'
             ? 'Nothing is ever sent automatically. Bouncing donors pile up on the Nedarim Plus page — select them there and press Send.'
-            : 'The daily sync emails bouncing donors — but only those in a 🤖 Auto-email category (or covered by the "no category" rule below).'}
+            : 'The daily sync emails bouncing donors — but only those with a 🤖 Auto-email label (or covered by the "no label" rule below).'}
         </p>
       </div>
 
       {/* ── Default treatment (no category) ── */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-6">
-        <p className="text-sm font-semibold text-white mb-2">Donors with <span className="text-slate-400">no category</span></p>
+        <p className="text-sm font-semibold text-white mb-2">Donors with <span className="text-slate-400">no label</span></p>
         <RuleEditor rule={defaultRule} onChange={setDefaultAndSave} />
       </div>
 
@@ -240,7 +248,7 @@ export default function CategoriesClient() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="New category name (e.g. Parents, Alumni, Dinner 2026, VIP)…"
+          placeholder="New label (e.g. Fees, Donation, Campaign, Devora, Dinner 2026)…"
           className="flex-1 min-w-[240px] bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50"
         />
         <div className="flex gap-1">
@@ -259,13 +267,20 @@ export default function CategoriesClient() {
       <div className="mt-4 rounded-xl border border-white/10 divide-y divide-white/5">
         {loading && <p className="px-4 py-6 text-slate-500 text-sm">Loading…</p>}
         {!loading && cats.length === 0 && (
-          <p className="px-4 py-6 text-slate-500 text-sm">No categories yet — create your first one above.</p>
+          <p className="px-4 py-6 text-slate-500 text-sm">No labels yet — create your first one above.</p>
         )}
         {cats.map((cat) => (
           <div key={cat.id} className="px-4 py-3 space-y-2">
             <div className="flex items-center gap-3">
               <CategoryChip cat={cat} />
-              <span className="text-slate-500 text-xs">{counts.get(cat.id) ?? 0} donor(s)</span>
+              <a href={`/crm/donors?label=${cat.id}`} className="text-sky-700 hover:underline text-sm" title={`Show donors labelled ${cat.name}`}>
+                {(counts.get(cat.id) ?? 0).toLocaleString()} donor(s)
+              </a>
+              {studentCounts && (
+                <a href={`/crm/students?label=${cat.id}`} className="text-sky-700 hover:underline text-sm" title={`Show students labelled ${cat.name}`}>
+                  {(studentCounts.get(cat.id) ?? 0).toLocaleString()} student(s)
+                </a>
+              )}
               <span className="flex-1" />
               <div className="flex gap-1 mr-2">
                 {CATEGORY_COLORS.map((c) => (

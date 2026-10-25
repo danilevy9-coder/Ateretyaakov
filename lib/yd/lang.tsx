@@ -13,7 +13,7 @@ const KEY = 'yd-lang';
  * Hebrew switch. false = English only (the EN | עב toggle is hidden and ?lang=he is ignored).
  * The Hebrew version is reviewed on its own branch/PR, where this is set to true.
  */
-export const HEBREW_ENABLED = false;
+export const HEBREW_ENABLED = true;
 
 /**
  * Site language. English by default; Hebrew via the EN | עב toggle, a ?lang=he link,

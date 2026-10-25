@@ -90,10 +90,16 @@ function useFitText() {
     if (!el) return;
     const line = el.parentElement as HTMLElement;
     const fit = () => {
-      el.style.fontSize = '100px';
-      const w = el.getBoundingClientRect().width;
       const avail = line.clientWidth;
-      if (w > 0 && avail > 0) el.style.fontSize = `${Math.floor((97 * avail) / w)}px`;
+      let size = 100;
+      // Two passes: the first gets close, the second corrects for any fixed spacing.
+      for (let i = 0; i < 2; i++) {
+        el.style.fontSize = `${size}px`;
+        const w = el.getBoundingClientRect().width;
+        if (!(w > 0 && avail > 0)) return;
+        size = Math.floor((size * 0.97 * avail) / w);
+      }
+      el.style.fontSize = `${size}px`;
     };
     fit();
     // Re-fit once the display face has actually loaded (it swaps in after first paint).

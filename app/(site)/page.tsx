@@ -562,6 +562,9 @@ export default function HomePage() {
       if (stackSec) {
         const cards = gsap.utils.toArray<HTMLElement>('.yd-stack-card', stackSec);
         gsap.set(cards.slice(1), { y: () => window.innerHeight, rotate: 5 });
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: stackSec, start: 'top top', end: 'bottom bottom', scrub: 0.5, invalidateOnRefresh: true },
+        });
         cards.forEach((card, i) => {
           if (i === 0) return;
           const prevCard = cards[i - 1];

@@ -456,7 +456,7 @@ export default function HomePage() {
               discover it."
             </blockquote>
             <cite className="text-white/40 text-sm not-italic">
-              — Rabbi Yehoshua Liff, Rosh Yeshiva
+              — Rabbi Yehoshua Liff
             </cite>
           </FadeIn>
         </div>
@@ -705,7 +705,7 @@ export default function HomePage() {
             {[
               {
                 name: 'Rabbi Yehoshua Liff',
-                title: 'Rosh Yeshiva',
+                title: 'Maggid Shiur',
                 bio: 'Graduate of Yeshivat Ner Israel of Baltimore, founder of Yeshivat Ner Yaacov of Jerusalem. A visionary leader who has dedicated his life to building the next generation of Torah leaders.',
                 img: '/images/staff/rabbi-yehoshua-liff.jpg',
               },

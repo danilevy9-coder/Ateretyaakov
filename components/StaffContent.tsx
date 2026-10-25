@@ -6,23 +6,22 @@ import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { gsap } from 'gsap';
 
 // ── Staff data ────────────────────────────────────────────────
-const staffMembers = [
+// Order and names per Dani (25 Oct 2026). Existing roles/bios kept as they were;
+// new staff have empty role/bio/Hebrew name until Dani supplies them (empty fields are hidden).
+type StaffMember = {
+  id: number;
+  name: string;
+  hebrewName: string;
+  title: string;
+  image: string;
+  bio: string;
+  expertise: string[];
+  videoId: string;
+};
+
+const staffMembers: StaffMember[] = [
   {
     id: 1,
-    name: 'Rabbi Yehoshua Liff',
-    hebrewName: 'הרב יהושע ליף',
-    title: 'Rosh Yeshiva',
-    image: '/images/staff/rabbi-yehoshua-liff.jpg',
-    bio: `Rabbi Yehoshua Liff is a graduate of the prestigious Yeshivat Ner Israel of Baltimore, Maryland, one of the foremost yeshivos in North America. He went on to found Yeshivat Ner Yaacov in Jerusalem, a highly recognized and respected institution that produced generations of talmidim.
-
-Drawing on decades of experience in chinuch and yeshiva leadership, Rabbi Yehoshua Liff co-founded Yeshiva Ateret Yaakov with a singular vision: to create an environment where every bochur is truly seen, guided, and elevated to his fullest potential.
-
-His shiurim are renowned for their clarity, depth, and real-world relevance. Rabbi Liff has an extraordinary ability to make complex sugyos come alive and connect timeless Torah wisdom to the world his talmidim inhabit.`,
-    expertise: ['Gemara & Halacha', 'Machshava', 'Leadership', 'Hashkafa'],
-    videoId: 'dQw4w9WgXcQ',
-  },
-  {
-    id: 2,
     name: 'Rabbi Dov Ber Liff',
     hebrewName: 'הרב דב בר ליף',
     title: 'Rosh Yeshiva',
@@ -33,10 +32,10 @@ What sets Rabbi Dov Ber apart is his genuine warmth and individual concern for e
 
 His approach to chinuch combines rigorous Torah scholarship with deep emotional intelligence. He helps bochurim not only learn but grow into themselves — into men who are ready for the world.`,
     expertise: ['Chavrusa Learning', 'Character Development', 'Individual Guidance', 'Iyun'],
-    videoId: 'dQw4w9WgXcQ',
+    videoId: '', // was a placeholder YouTube link (not a shiur); add a real video ID to show one
   },
   {
-    id: 3,
+    id: 2,
     name: 'Rabbi Larry Shain',
     hebrewName: 'הרב לארי שיין',
     title: 'Mashgiach & Administrator',
@@ -47,43 +46,71 @@ As Mashgiach, Rabbi Shain brings a unique blend of business professionalism and 
 
 His door is always open. Whether a bochur needs practical guidance, emotional support, or a listening ear, Rabbi Shain is there — drawing on a lifetime of experience helping young men find their way.`,
     expertise: ['Pastoral Care', 'Administration', 'Life Guidance', 'Mussar'],
-    videoId: 'dQw4w9WgXcQ',
+    videoId: '', // was a placeholder YouTube link (not a shiur); add a real video ID to show one
+  },
+  {
+    id: 3,
+    name: 'Rabbi Weineman',
+    hebrewName: '', // TODO: Hebrew spelling from Dani
+    title: 'Mashgiach',
+    image: '/images/staff/rabbi-weineman.jpg', // upload via /admin
+    bio: '', // TODO: bio from Dani
+    expertise: [],
+    videoId: '',
   },
   {
     id: 4,
-    name: 'Rabbi Avi Cohen',
-    hebrewName: 'הרב אבי כהן',
-    title: 'Senior Maggid Shiur',
-    image: '/images/staff/rabbi-avi-cohen.jpg',
-    bio: `Rabbi Avi Cohen delivers the daily Gemara shiur with extraordinary energy and clarity. A sought-after educator with years of experience in yeshivos across Israel and America, he brings each sugya to life with creative questions and sharp analysis.
+    name: 'Rabbi Yehoshua Liff',
+    hebrewName: 'הרב יהושע ליף',
+    title: 'Maggid Shiur',
+    image: '/images/staff/rabbi-yehoshua-liff.jpg',
+    bio: `Rabbi Yehoshua Liff is a graduate of the prestigious Yeshivat Ner Israel of Baltimore, Maryland, one of the foremost yeshivos in North America. He went on to found Yeshivat Ner Yaacov in Jerusalem, a highly recognized and respected institution that produced generations of talmidim.
 
-His shiurim are a highlight of the day — bochurim arrive early and stay late discussing the ideas he raises. Rabbi Cohen is committed to producing genuine talmidei chachamim who can learn independently with depth and joy.`,
-    expertise: ['Gemara Shiur', 'Bekius', 'Chakirah', 'Tosfos'],
-    videoId: 'dQw4w9WgXcQ',
+Drawing on decades of experience in chinuch and yeshiva leadership, Rabbi Yehoshua Liff co-founded Yeshiva Ateret Yaakov with a singular vision: to create an environment where every bochur is truly seen, guided, and elevated to his fullest potential.
+
+His shiurim are renowned for their clarity, depth, and real-world relevance. Rabbi Liff has an extraordinary ability to make complex sugyos come alive and connect timeless Torah wisdom to the world his talmidim inhabit.`,
+    expertise: ['Gemara & Halacha', 'Machshava', 'Leadership', 'Hashkafa'],
+    videoId: '', // was a placeholder YouTube link (not a shiur); add a real video ID to show one
   },
   {
     id: 5,
-    name: 'Rabbi Moshe Weiss',
-    hebrewName: 'הרב משה ווייס',
-    title: 'Seder Rishon Rebbi',
-    image: '/images/staff/rabbi-moshe-weiss.jpg',
-    bio: `Rabbi Moshe Weiss oversees the morning seder — the backbone of the yeshiva's learning schedule. With patience and precision, he helps bochurim develop the skills and habits of serious Torah learning.
-
-He is particularly skilled at identifying a bochur's learning style and tailoring his guidance accordingly. Under his watch, even bochurim who struggled in the past discover they are capable learners who can grow to love Torah.`,
-    expertise: ['Morning Seder', 'Learning Skills', 'Beki\'ut', 'One-on-One Coaching'],
-    videoId: 'dQw4w9WgXcQ',
+    name: 'Rabbi Greenberg',
+    hebrewName: '', // TODO: Hebrew spelling from Dani
+    title: 'Maggid Shiur',
+    image: '/images/staff/rabbi-greenberg.jpg', // upload via /admin
+    bio: '', // TODO: bio from Dani
+    expertise: [],
+    videoId: '',
   },
   {
     id: 6,
-    name: 'Rabbi Nachman Berger',
-    hebrewName: 'הרב נחמן ברגר',
-    title: 'Seder Sheni Maggid Shiur',
-    image: '/images/staff/rabbi-nachman-berger.jpg',
-    bio: `Rabbi Nachman Berger leads the afternoon seder with a focus on Halacha LeMa'aseh and practical Torah application. His shiurim connect the Gemara to everyday life in ways that resonate deeply with his talmidim.
-
-He also runs the yeshiva's popular weekly mussar vaad, which is considered among the most impactful parts of the week by many bochurim and alumni.`,
-    expertise: ['Halacha', 'Mussar', 'Afternoon Seder', 'Practical Applications'],
-    videoId: 'dQw4w9WgXcQ',
+    name: "R' Liel Shalom",
+    hebrewName: '', // TODO: Hebrew spelling from Dani
+    title: 'Maggid Shiur',
+    image: '/images/staff/r-liel-shalom.jpg', // upload via /admin
+    bio: '', // TODO: bio from Dani
+    expertise: [],
+    videoId: '',
+  },
+  {
+    id: 7,
+    name: 'Rabbi Klapper',
+    hebrewName: '', // TODO: Hebrew spelling from Dani
+    title: 'Maggid Shiur',
+    image: '/images/staff/rabbi-klapper.jpg', // upload via /admin
+    bio: '', // TODO: bio from Dani
+    expertise: [],
+    videoId: '',
+  },
+  {
+    id: 8,
+    name: 'Rabbi Moti Pogrow',
+    hebrewName: '', // TODO: Hebrew spelling from Dani
+    title: 'Maggid Shiur',
+    image: '/images/staff/rabbi-moti-pogrow.jpg', // upload via /admin
+    bio: '', // TODO: bio from Dani
+    expertise: [],
+    videoId: '',
   },
 ];
 
@@ -91,7 +118,7 @@ He also runs the yeshiva's popular weekly mussar vaad, which is considered among
 function PlaceholderImg({ name, className }: { name: string; className?: string }) {
   const initials = name
     .split(' ')
-    .filter((w) => w !== 'Rabbi')
+    .filter((w) => w !== 'Rabbi' && w !== "R'")
     .map((w) => w[0])
     .join('')
     .slice(0, 2);
@@ -122,7 +149,7 @@ function StaffCard({
   member,
   onClick,
 }: {
-  member: (typeof staffMembers)[0];
+  member: StaffMember;
   onClick: () => void;
 }) {
   const ref = useRef(null);
@@ -158,23 +185,29 @@ function StaffCard({
 
         {/* Info */}
         <div className="p-6">
-          <div className="text-gold text-xs font-semibold tracking-widest uppercase mb-2">
-            {member.title}
-          </div>
+          {member.title && (
+            <div className="text-gold text-xs font-semibold tracking-widest uppercase mb-2">
+              {member.title}
+            </div>
+          )}
           <h3 className="text-white text-xl font-serif font-bold mb-1 group-hover:text-gold transition-colors">
             {member.name}
           </h3>
-          <p className="text-white/40 text-sm font-hebrew rtl">{member.hebrewName}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {member.expertise.slice(0, 2).map((e) => (
-              <span
-                key={e}
-                className="px-2.5 py-1 bg-white/5 text-white/50 text-xs rounded-full border border-white/5"
-              >
-                {e}
-              </span>
-            ))}
-          </div>
+          {member.hebrewName && (
+            <p className="text-white/40 text-sm font-hebrew rtl">{member.hebrewName}</p>
+          )}
+          {member.expertise.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {member.expertise.slice(0, 2).map((e) => (
+                <span
+                  key={e}
+                  className="px-2.5 py-1 bg-white/5 text-white/50 text-xs rounded-full border border-white/5"
+                >
+                  {e}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -189,7 +222,7 @@ function StaffModal({
   member,
   onClose,
 }: {
-  member: (typeof staffMembers)[0];
+  member: StaffMember;
   onClose: () => void;
 }) {
   return (
@@ -223,13 +256,17 @@ function StaffModal({
               <PlaceholderImg name={member.name} className="w-full h-full" />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent to-obsidian/30 lg:bg-gradient-to-t from-obsidian via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 p-8">
-                <div className="text-gold text-sm font-semibold tracking-widest uppercase mb-2">
-                  {member.title}
-                </div>
+                {member.title && (
+                  <div className="text-gold text-sm font-semibold tracking-widest uppercase mb-2">
+                    {member.title}
+                  </div>
+                )}
                 <h2 className="text-white text-4xl font-serif font-bold mb-1">
                   {member.name}
                 </h2>
-                <p className="text-white/40 font-hebrew rtl text-lg">{member.hebrewName}</p>
+                {member.hebrewName && (
+                  <p className="text-white/40 font-hebrew rtl text-lg">{member.hebrewName}</p>
+                )}
               </div>
             </div>
           </div>
@@ -237,59 +274,67 @@ function StaffModal({
           {/* Right — Bio & Video */}
           <div className="p-8 lg:p-12 flex flex-col gap-8">
             {/* Expertise */}
-            <div>
-              <div className="text-gold/50 text-xs tracking-widest uppercase mb-3 font-semibold">
-                Areas of Expertise
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {member.expertise.map((e) => (
-                  <span
-                    key={e}
-                    className="px-3 py-1.5 bg-gold/10 border border-gold/20 text-gold text-sm rounded-full"
-                  >
-                    {e}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="divider-gold" />
+            {member.expertise.length > 0 && (
+              <>
+                <div>
+                  <div className="text-gold/50 text-xs tracking-widest uppercase mb-3 font-semibold">
+                    Areas of Expertise
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {member.expertise.map((e) => (
+                      <span
+                        key={e}
+                        className="px-3 py-1.5 bg-gold/10 border border-gold/20 text-gold text-sm rounded-full"
+                      >
+                        {e}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="divider-gold" />
+              </>
+            )}
 
             {/* Bio */}
-            <div>
-              <div className="text-gold/50 text-xs tracking-widest uppercase mb-4 font-semibold">
-                Biography
-              </div>
-              <div className="space-y-4">
-                {member.bio.split('\n\n').map((para, i) => (
-                  <p key={i} className="text-white/70 text-base leading-relaxed">
-                    {para}
+            {member.bio && (
+              <>
+                <div>
+                  <div className="text-gold/50 text-xs tracking-widest uppercase mb-4 font-semibold">
+                    Biography
+                  </div>
+                  <div className="space-y-4">
+                    {member.bio.split('\n\n').map((para, i) => (
+                      <p key={i} className="text-white/70 text-base leading-relaxed">
+                        {para}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Featured shiur — only when a real video ID is set */}
+            {member.videoId && (
+              <>
+                <div className="divider-gold" />
+                <div>
+                  <div className="text-gold/50 text-xs tracking-widest uppercase mb-4 font-semibold">
+                    Featured Shiur
+                  </div>
+                  <div className="video-container rounded-xl overflow-hidden border border-white/10">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${member.videoId}?rel=0&modestbranding=1`}
+                      title={`${member.name} Shiur`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  <p className="text-white/30 text-xs mt-2 text-center">
+                    Torah Shiur — Yeshiva Ateret Yaakov
                   </p>
-                ))}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="divider-gold" />
-
-            {/* Video Placeholder */}
-            <div>
-              <div className="text-gold/50 text-xs tracking-widest uppercase mb-4 font-semibold">
-                Featured Shiur
-              </div>
-              <div className="video-container rounded-xl overflow-hidden border border-white/10">
-                <iframe
-                  src={`https://www.youtube.com/embed/${member.videoId}?rel=0&modestbranding=1`}
-                  title={`${member.name} Shiur`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-              <p className="text-white/30 text-xs mt-2 text-center">
-                Torah Shiur — Yeshiva Ateret Yaakov
-              </p>
-            </div>
+                </div>
+              </>
+            )}
 
             {/* CTA */}
             <a
@@ -312,7 +357,7 @@ function StaffModal({
 // ═══════════════════════════════════════════════════════════════
 export default function StaffContent() {
   const [mounted, setMounted] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<(typeof staffMembers)[0] | null>(null);
+  const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
   // Prevent hydration mismatch — only render animations client-side

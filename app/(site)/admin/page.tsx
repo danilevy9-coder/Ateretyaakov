@@ -212,12 +212,14 @@ const imageSlots = [
     border: 'border-amber-500/20',
     badge: 'bg-amber-500/20 text-amber-300',
     slots: [
-      { path: '/images/staff/rabbi-yehoshua-liff.jpg', label: 'Rabbi Yehoshua Liff', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
       { path: '/images/staff/rabbi-dov-ber-liff.jpg', label: 'Rabbi Dov Ber Liff', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
       { path: '/images/staff/rabbi-larry-shain.jpg', label: 'Rabbi Larry Shain', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
-      { path: '/images/staff/rabbi-avi-cohen.jpg', label: 'Rabbi Avi Cohen', hint: 'Headshot.', used: ['Staff card'] },
-      { path: '/images/staff/rabbi-moshe-weiss.jpg', label: 'Rabbi Moshe Weiss', hint: 'Headshot.', used: ['Staff card'] },
-      { path: '/images/staff/rabbi-nachman-berger.jpg', label: 'Rabbi Nachman Berger', hint: 'Headshot.', used: ['Staff card'] },
+      { path: '/images/staff/rabbi-weineman.jpg', label: 'Rabbi Weineman', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
+      { path: '/images/staff/rabbi-yehoshua-liff.jpg', label: 'Rabbi Yehoshua Liff', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
+      { path: '/images/staff/rabbi-greenberg.jpg', label: 'Rabbi Greenberg', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
+      { path: '/images/staff/r-liel-shalom.jpg', label: "R' Liel Shalom", hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
+      { path: '/images/staff/rabbi-klapper.jpg', label: 'Rabbi Klapper', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
+      { path: '/images/staff/rabbi-moti-pogrow.jpg', label: 'Rabbi Moti Pogrow', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
     ],
   },
   {

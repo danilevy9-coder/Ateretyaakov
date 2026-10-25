@@ -52,7 +52,7 @@ His door is always open. Whether a bochur needs practical guidance, emotional su
     id: 3,
     name: 'Rabbi Weineman',
     hebrewName: '', // TODO: Hebrew spelling from Dani
-    title: '', // TODO: role from Dani
+    title: 'Mashgiach',
     image: '/images/staff/rabbi-weineman.jpg', // upload via /admin
     bio: '', // TODO: bio from Dani
     expertise: [],
@@ -62,7 +62,7 @@ His door is always open. Whether a bochur needs practical guidance, emotional su
     id: 4,
     name: 'Rabbi Yehoshua Liff',
     hebrewName: 'הרב יהושע ליף',
-    title: 'Rosh Yeshiva',
+    title: 'Maggid Shiur',
     image: '/images/staff/rabbi-yehoshua-liff.jpg',
     bio: `Rabbi Yehoshua Liff is a graduate of the prestigious Yeshivat Ner Israel of Baltimore, Maryland, one of the foremost yeshivos in North America. He went on to found Yeshivat Ner Yaacov in Jerusalem, a highly recognized and respected institution that produced generations of talmidim.
 
@@ -76,7 +76,7 @@ His shiurim are renowned for their clarity, depth, and real-world relevance. Rab
     id: 5,
     name: 'Rabbi Greenberg',
     hebrewName: '', // TODO: Hebrew spelling from Dani
-    title: '', // TODO: role from Dani
+    title: 'Maggid Shiur',
     image: '/images/staff/rabbi-greenberg.jpg', // upload via /admin
     bio: '', // TODO: bio from Dani
     expertise: [],
@@ -86,7 +86,7 @@ His shiurim are renowned for their clarity, depth, and real-world relevance. Rab
     id: 6,
     name: "R' Liel Shalom",
     hebrewName: '', // TODO: Hebrew spelling from Dani
-    title: '', // TODO: role from Dani
+    title: 'Maggid Shiur',
     image: '/images/staff/r-liel-shalom.jpg', // upload via /admin
     bio: '', // TODO: bio from Dani
     expertise: [],
@@ -96,7 +96,7 @@ His shiurim are renowned for their clarity, depth, and real-world relevance. Rab
     id: 7,
     name: 'Rabbi Klapper',
     hebrewName: '', // TODO: Hebrew spelling from Dani
-    title: '', // TODO: role from Dani
+    title: 'Maggid Shiur',
     image: '/images/staff/rabbi-klapper.jpg', // upload via /admin
     bio: '', // TODO: bio from Dani
     expertise: [],
@@ -106,7 +106,7 @@ His shiurim are renowned for their clarity, depth, and real-world relevance. Rab
     id: 8,
     name: 'Rabbi Moti Pogrow',
     hebrewName: '', // TODO: Hebrew spelling from Dani
-    title: '', // TODO: role from Dani
+    title: 'Maggid Shiur',
     image: '/images/staff/rabbi-moti-pogrow.jpg', // upload via /admin
     bio: '', // TODO: bio from Dani
     expertise: [],

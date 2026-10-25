@@ -41,6 +41,9 @@ export default function Navbar() {
     }
   }, []);
 
+  // The home page renders its own header.
+  if (pathname === '/') return null;
+
   return (
     <>
       <motion.nav

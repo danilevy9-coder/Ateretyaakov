@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 
 export default function CustomCursor() {
+  const pathname = usePathname();
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
   const isHovering = useRef(false);
@@ -51,6 +53,9 @@ export default function CustomCursor() {
       window.removeEventListener('mouseover', handleMouseOver);
     };
   }, [cursorX, cursorY]);
+
+  // The home page has its own label cursor.
+  if (pathname === '/') return null;
 
   return (
     <>

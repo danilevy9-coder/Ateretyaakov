@@ -52,6 +52,11 @@ function toEmbedUrl(url: string): string {
   return '';
 }
 
+function videoId(embedUrl: string): string {
+  const m = embedUrl.match(/embed\/([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : '';
+}
+
 // ── Scroll reveal: adds .is-in when an element enters the viewport ──
 function useReveal(ready: boolean) {
   useEffect(() => {
@@ -234,6 +239,8 @@ function Header() {
 
 export default function HomePage() {
   const fitRef = useFitText();
+  const footFitRef = useFitText();
+  const [playing, setPlaying] = useState(false);
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   useReveal(ready);
@@ -424,13 +431,22 @@ export default function HomePage() {
         <div className={`yd-watch-grid ${embed ? 'has-video' : ''}`}>
           {embed && (
             <div className="yd-video" data-reveal>
-              <iframe
-                src={embed}
-                title="Latest from Yeshiva Ateret Yaakov"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                loading="lazy"
-              />
+              {playing ? (
+                <iframe
+                  src={embed + (embed.includes('?') ? '&' : '?') + 'autoplay=1'}
+                  title="Latest from Yeshiva Ateret Yaakov"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <button className="yd-video-facade" onClick={() => setPlaying(true)} data-cursor="Play">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`https://i.ytimg.com/vi/${videoId(embed)}/hqdefault.jpg`} alt="" loading="lazy" />
+                  <span className="yd-play">
+                    <span aria-hidden="true">▶</span> Play the latest video
+                  </span>
+                </button>
+              )}
             </div>
           )}
           <div className="yd-follow">
@@ -451,7 +467,7 @@ export default function HomePage() {
             </a>
             <a href="https://www.facebook.com/liffsyeshiva/" target="_blank" rel="noopener noreferrer" className="yd-big-link" data-reveal>
               <span className="yd-big-link-k">Facebook</span>
-              <span className="yd-big-link-v">News</span>
+              <span className="yd-big-link-v">Updates</span>
               <span className="yd-big-link-h">liffsyeshiva</span>
               <span className="yd-arrow" aria-hidden="true">↗</span>
             </a>
@@ -498,7 +514,9 @@ export default function HomePage() {
           <p>© {year} Yeshiva Ateret Yaakov</p>
         </div>
         <p className="yd-footer-word" aria-hidden="true">
-          Ateret Yaakov
+          <span ref={footFitRef} className="yd-fit">
+            Ateret Yaakov
+          </span>
         </p>
         <p className="yd-he yd-footer-he" lang="he" dir="rtl">
           ישיבת עטרת יעקב

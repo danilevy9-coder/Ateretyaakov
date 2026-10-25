@@ -93,7 +93,7 @@ function useFitText() {
       el.style.fontSize = '100px';
       const w = el.getBoundingClientRect().width;
       const avail = line.clientWidth;
-      if (w > 0 && avail > 0) el.style.fontSize = `${Math.floor((100 * avail) / w) - 1}px`;
+      if (w > 0 && avail > 0) el.style.fontSize = `${Math.floor((97 * avail) / w)}px`;
     };
     fit();
     document.fonts?.ready.then(fit).catch(() => {});

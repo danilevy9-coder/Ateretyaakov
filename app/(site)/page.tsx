@@ -31,11 +31,11 @@ const G = '/images/gallery/';
 // Hero: a slow cinematic crossfade of real photos (full colour, warm grade).
 // pos = object-position, chosen so faces stay in frame on a tall phone crop.
 const heroSlides = [
-  { src: G + 'photo-13.png', pos: '50% 40%', label: 'Achdus', he: 'אחדות' },
-  { src: G + 'photo-11.png', pos: '50% 50%', label: 'Torah', he: 'תורה' },
-  { src: G + 'photo-2.png', pos: '50% 45%', label: 'Chavrusa', he: 'חברותא' },
-  { src: G + 'shabbos-1.jpg', pos: '58% 50%', label: 'Shabbos', he: 'שבת' },
-  { src: G + 'photo-3.png', pos: '50% 40%', label: 'Simcha', he: 'שמחה' },
+  { src: G + 'photo-2.png', pos: '50% 35%', label: 'Achdus', he: 'אחדות' },
+  { src: G + 'photo-11.png', pos: '48% 40%', label: 'Torah', he: 'תורה' },
+  { src: G + 'shabbos-1.jpg', pos: '58% 45%', label: 'Shabbos', he: 'שבת' },
+  { src: G + 'photo-3.png', pos: '50% 35%', label: 'Chavrusa', he: 'חברותא' },
+  { src: G + 'photo-13.png', pos: '30% 40%', label: 'Simcha', he: 'שמחה' },
 ];
 
 // "Life at the yeshiva" reel. Labels are the ones the current site already uses.
@@ -58,6 +58,7 @@ const riverCols: Pic[][] = [
     { src: G + 'photo-1.png', pos: '45% 50%', label: 'Chavrusa', he: 'חברותא', shape: 'tall' },
     { src: G + 'photo-19.png', label: 'Brotherhood', he: 'אחווה', shape: 'sq' },
     { src: G + 'photo-18.png', pos: '50% 40%', label: 'Achdus', he: 'אחדות', shape: 'tall' },
+    { src: G + 'photo-12.png', pos: '40% 50%', label: 'Guidance', he: 'הדרכה', shape: 'sq' },
   ],
   [
     { src: G + 'photo-5.png', label: 'Beis medrash', he: 'בית מדרש', shape: 'sq' },
@@ -65,6 +66,7 @@ const riverCols: Pic[][] = [
     { src: G + 'photo-14.png', label: 'Shiurim', he: 'שיעורים', shape: 'sq' },
     { src: G + 'photo-4.png', pos: '62% 50%', label: 'Chavrusa', he: 'חברותא', shape: 'tall' },
     { src: G + 'rabbi-liff-teaching.jpg', pos: '45% 50%', label: 'Shiur', he: 'שיעור', shape: 'sq' },
+    { src: G + 'photo-13.png', pos: '45% 40%', label: 'Simcha', he: 'שמחה', shape: 'tall' },
   ],
   [
     { src: G + 'photo-10.png', label: 'Torah', he: 'תורה', shape: 'tall' },
@@ -365,8 +367,8 @@ function Hero() {
               alt=""
               fill
               priority={i === 0}
-              quality={70}
-              sizes="100vw"
+              quality={62}
+              sizes="(orientation: portrait) 165vh, 100vw"
               style={{ objectPosition: s.pos }}
             />
           </div>
@@ -561,6 +563,7 @@ export default function HomePage() {
       const stackSec = root.querySelector<HTMLElement>('.yd-stack');
       if (stackSec) {
         const cards = gsap.utils.toArray<HTMLElement>('.yd-stack-card', stackSec);
+        gsap.set(cards.slice(1), { yPercent: 100 });
         const tl = gsap.timeline({
           scrollTrigger: { trigger: stackSec, start: 'top top', end: 'bottom bottom', scrub: 0.5 },
         });
@@ -769,7 +772,7 @@ export default function HomePage() {
           {stack.map((s, i) => (
             <figure key={s.src} className="yd-stack-card" style={{ zIndex: i + 1 }}>
               <div className="yd-grade yd-stack-img">
-                <Image src={s.src} alt={s.label} fill quality={68} sizes="100vw" style={{ objectPosition: s.pos }} />
+                <Image src={s.src} alt={s.label} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: s.pos }} />
               </div>
               <div className="yd-stack-dim" aria-hidden="true" />
               <figcaption>
@@ -789,7 +792,7 @@ export default function HomePage() {
       <section className="yd-zoom" aria-labelledby="yd-zoom-h">
         <div className="yd-zoom-stick">
           <div className="yd-zoom-media yd-grade">
-            <Image src={G + 'bochurim-2.jpg'} alt="The beis medrash, full" fill quality={70} sizes="100vw" />
+            <Image src={G + 'bochurim-2.jpg'} alt="The beis medrash, full" fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" />
           </div>
           <div className="yd-zoom-shade" aria-hidden="true" />
           <div className="yd-zoom-mask" aria-hidden="true">

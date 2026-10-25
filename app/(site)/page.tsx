@@ -96,10 +96,17 @@ function useFitText() {
       if (w > 0 && avail > 0) el.style.fontSize = `${Math.floor((97 * avail) / w)}px`;
     };
     fit();
+    // Re-fit once the display face has actually loaded (it swaps in after first paint).
     document.fonts?.ready.then(fit).catch(() => {});
+    document.fonts?.addEventListener?.('loadingdone', fit);
+    const timers = [300, 1200, 3000].map((t) => window.setTimeout(fit, t));
     const ro = new ResizeObserver(fit);
     ro.observe(line);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      timers.forEach((t) => window.clearTimeout(t));
+      document.fonts?.removeEventListener?.('loadingdone', fit);
+    };
   }, []);
   return ref;
 }

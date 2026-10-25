@@ -98,7 +98,7 @@ function useWords() {
 function Hero() {
   const { t } = useLang();
   const word = useWords();
-  const fitRef = useFitText(0.99);
+  const fitRef = useFitText(0.95);
   const [idx, setIdx] = useState(0);
   const [prev, setPrev] = useState(-1);
   const heroRef = useRef<HTMLElement>(null);
@@ -210,7 +210,8 @@ export default function HomePage() {
         .to('.yd-hero-media', { yPercent: 18, scale: 1.08, ease: 'none' }, 0)
         .to('.yd-hero-shade', { opacity: 1, ease: 'none' }, 0)
         .to('.yd-hero-copy', { yPercent: -18, ease: 'none' }, 0)
-        .to('.yd-diff', { scale: 1.22, transformOrigin: rtl ? '100% 100%' : '0% 100%', ease: 'none' }, 0)
+        // the big word recedes (never grows past the screen edge)
+        .to('.yd-diff', { scale: 0.9, opacity: 0.55, transformOrigin: rtl ? '100% 100%' : '0% 100%', ease: 'none' }, 0)
         .to('.yd-hero-foot', { opacity: 0, ease: 'none', duration: 0.4 }, 0);
 
       // Statement: words light up one by one as you scroll through it.

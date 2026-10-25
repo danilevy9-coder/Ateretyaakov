@@ -238,28 +238,31 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
 .yd-river-item figcaption { color: rgba(242, 239, 232, 0.55); font-size: 11px; }
 .yd-river-item figcaption .yd-he { text-transform: none; font-size: 13px; letter-spacing: 0; margin-left: auto; }
 
-/* ── Pinned stack ── */
-.yd-stack { position: relative; background: var(--ink); }
-.yd-stack-stick { position: relative; }
-.yd-stack-card { position: relative; margin: 0; height: 100vh; height: 100svh; overflow: hidden; background: var(--ink); color: var(--paper); transform-origin: 50% 0; }
+/* ── Pinned stack: centred 4:5 frames, each new one rises over the last ── */
+.yd-stack { position: relative; background: var(--ink); color: var(--paper); padding: 6vh 0 10vh; }
+.yd-stack-stick { position: relative; display: grid; gap: 14px; padding: 0 6vw; }
+.yd-stack-k { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(242, 239, 232, 0.55); display: flex; gap: 10px; align-items: baseline; }
+.yd-stack-k .yd-he { font-size: 16px; letter-spacing: 0; color: #8f90ff; }
+.yd-stack-card { position: relative; margin: 0; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 8px; background: #1c1915; color: var(--paper); transform-origin: 50% 30%; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
 .yd-stack-img { position: absolute; inset: 0; }
 .yd-stack-img img { object-fit: cover; }
-.yd-stack-dim { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
-.yd-stack-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 11, 10, 0) 50%, rgba(12, 11, 10, 0.8) 100%); pointer-events: none; }
-.yd-stack-card figcaption {
-  position: absolute; z-index: 2; left: var(--pad); right: var(--pad); bottom: max(28px, env(safe-area-inset-bottom));
-  display: flex; align-items: baseline; gap: 14px;
-}
-.yd-stack-n { font-family: var(--display); font-weight: 760; font-stretch: 75%; font-variation-settings: 'wdth' 75; font-size: 20px; font-variant-numeric: tabular-nums; }
-.yd-stack-n small { font-size: 0.6em; opacity: 0.5; }
-.yd-stack-l { font-family: var(--display); font-weight: 780; font-stretch: 75%; font-variation-settings: 'wdth' 75; font-size: clamp(48px, 13vw, 150px); line-height: 0.85; text-transform: uppercase; }
-.yd-stack-card figcaption .yd-he { margin-left: auto; font-size: 20px; opacity: 0.75; }
+.yd-stack-dim { position: absolute; inset: 0; z-index: 1; background: #000; opacity: 0; pointer-events: none; }
+.yd-stack-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 11, 10, 0) 45%, rgba(12, 11, 10, 0.85) 100%); pointer-events: none; }
+.yd-stack-card figcaption { position: absolute; z-index: 2; left: 18px; right: 18px; bottom: 18px; display: flex; align-items: baseline; gap: 12px; }
+.yd-stack-n { font-family: var(--display); font-weight: 760; font-stretch: 75%; font-variation-settings: 'wdth' 75; font-size: 18px; font-variant-numeric: tabular-nums; }
+.yd-stack-n small { font-size: 0.65em; opacity: 0.55; }
+.yd-stack-l { font-family: var(--display); font-weight: 780; font-stretch: 75%; font-variation-settings: 'wdth' 75; font-size: clamp(40px, 11vw, 96px); line-height: 0.85; text-transform: uppercase; }
+.yd-stack-card figcaption .yd-he { margin-left: auto; font-size: 18px; opacity: 0.8; }
 .yd-stack-bar { display: none; }
-.yd-motion .yd-stack { height: 500vh; height: 500svh; }
-.yd-motion .yd-stack-stick { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
-.yd-motion .yd-stack-card { position: absolute; inset: 0; height: auto; will-change: transform; }
-.yd-motion .yd-stack-bar { display: block; position: absolute; z-index: 20; right: 10px; top: 30%; bottom: 30%; width: 2px; background: rgba(242, 239, 232, 0.2); border-radius: 2px; overflow: hidden; }
 .yd-stack-bar i { display: block; width: 100%; height: 100%; background: var(--paper); transform-origin: 50% 0; transform: scaleY(0); }
+.yd-motion .yd-stack { height: 520vh; height: 520svh; padding: 0; }
+.yd-motion .yd-stack-stick { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; display: block; padding: 0; }
+.yd-motion .yd-stack-k { position: absolute; z-index: 30; top: 76px; left: 6vw; }
+.yd-motion .yd-stack-card {
+  position: absolute; inset: 0; margin: auto; width: 88vw; height: 110vw; max-height: 72svh; max-width: 57.6svh;
+  aspect-ratio: auto; will-change: transform;
+}
+.yd-motion .yd-stack-bar { display: block; position: absolute; z-index: 30; right: 2vw; top: 30%; bottom: 30%; width: 2px; background: rgba(242, 239, 232, 0.18); border-radius: 2px; overflow: hidden; }
 
 /* ── 03 · Zoom through "INSIDE" ── */
 .yd-zoom { position: relative; background: var(--ink); color: var(--paper); }
@@ -282,6 +285,7 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
   text-transform: uppercase; line-height: 0.8; letter-spacing: -0.01em;
 }
 .yd-motion .yd-zoom-shade { opacity: 0; }
+.yd-motion .yd-zoom-cap > * { opacity: 0; }
 
 /* ── 04 · Reel (horizontal) ── */
 .yd-reel { position: relative; background: var(--ink-2); color: var(--paper); }
@@ -416,7 +420,8 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
   .yd-river-col { gap: 24px; }
   .yd-river-col.yd-col-2 { display: flex; padding-top: 10vh; }
   .yd-river-big { font-size: 30vw; }
-  .yd-stack-card figcaption .yd-he { font-size: 30px; }
+  .yd-motion .yd-stack-card { width: 46vw; height: 57.5vw; }
+  .yd-stack-card figcaption .yd-he { font-size: 26px; }
   .yd-motion .yd-reel-item { flex-basis: 38vw; }
   .yd-motion .yd-reel-img { height: 60vh; }
   .yd-reel-end { flex-basis: 30vw; }

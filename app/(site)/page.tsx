@@ -40,12 +40,12 @@ const heroSlides = [
 
 // "Life at the yeshiva" reel. Labels are the ones the current site already uses.
 const reel = [
-  { src: G + 'photo-4.png', pos: '62% 50%', label: 'Chavrusa', he: 'חברותא' },
-  { src: G + 'rabbi-liff-teaching.jpg', pos: '45% 50%', label: 'Shiurim', he: 'שיעורים' },
-  { src: G + 'photo-16.png', pos: '50% 50%', label: 'Achdus', he: 'אחדות' },
-  { src: G + 'photo-19.png', pos: '55% 50%', label: 'Brotherhood', he: 'אחווה' },
-  { src: G + 'photo-20.png', pos: '50% 50%', label: 'Torah Study', he: 'לימוד תורה' },
-  { src: G + 'photo-9.png', pos: '50% 40%', label: 'Guidance', he: 'הדרכה' },
+  { src: G + 'photo-3.png', pos: '50% 40%', label: 'Chavrusa', he: 'חברותא' },
+  { src: G + 'photo-12.png', pos: '45% 50%', label: 'Shiurim', he: 'שיעורים' },
+  { src: G + 'photo-2.png', pos: '50% 40%', label: 'Achdus', he: 'אחדות' },
+  { src: G + 'shabbos-1.jpg', pos: '58% 50%', label: 'Shabbos', he: 'שבת' },
+  { src: G + 'photo-13.png', pos: '40% 40%', label: 'Simcha', he: 'שמחה' },
+  { src: G + 'photo-11.png', pos: '50% 45%', label: 'Torah', he: 'תורה' },
 ];
 
 // "Yeshiva life in motion": three columns of photos drifting at different speeds.
@@ -54,35 +54,33 @@ type Pic = { src: string; pos?: string; label: string; he: string; shape: 'tall'
 const riverCols: Pic[][] = [
   [
     { src: G + 'photo-8.png', pos: '50% 35%', label: 'Torah Study', he: 'לימוד תורה', shape: 'tall' },
-    { src: G + 'photo-15.png', label: 'Shiurim', he: 'שיעורים', shape: 'sq' },
-    { src: G + 'photo-1.png', pos: '45% 50%', label: 'Chavrusa', he: 'חברותא', shape: 'tall' },
-    { src: G + 'photo-19.png', label: 'Brotherhood', he: 'אחווה', shape: 'sq' },
-    { src: G + 'photo-18.png', pos: '50% 40%', label: 'Achdus', he: 'אחדות', shape: 'tall' },
-    { src: G + 'photo-12.png', pos: '40% 50%', label: 'Guidance', he: 'הדרכה', shape: 'sq' },
+    { src: G + 'photo-15.png', label: 'Simcha', he: 'שמחה', shape: 'sq' },
+    { src: G + 'photo-19.png', pos: '55% 50%', label: 'Brotherhood', he: 'אחווה', shape: 'tall' },
+    { src: G + 'bochurim-1.jpg', label: 'Beis medrash', he: 'בית מדרש', shape: 'sq' },
+    { src: G + 'rabbi-liff-teaching.jpg', pos: '45% 50%', label: 'Shiurim', he: 'שיעורים', shape: 'tall' },
   ],
   [
-    { src: G + 'photo-5.png', label: 'Beis medrash', he: 'בית מדרש', shape: 'sq' },
-    { src: G + 'photo-9.png', pos: '50% 35%', label: 'Guidance', he: 'הדרכה', shape: 'tall' },
-    { src: G + 'photo-14.png', label: 'Shiurim', he: 'שיעורים', shape: 'sq' },
+    { src: G + 'photo-9.png', pos: '50% 35%', label: 'Guidance', he: 'הדרכה', shape: 'sq' },
     { src: G + 'photo-4.png', pos: '62% 50%', label: 'Chavrusa', he: 'חברותא', shape: 'tall' },
-    { src: G + 'rabbi-liff-teaching.jpg', pos: '45% 50%', label: 'Shiur', he: 'שיעור', shape: 'sq' },
-    { src: G + 'photo-13.png', pos: '45% 40%', label: 'Simcha', he: 'שמחה', shape: 'tall' },
+    { src: G + 'photo-20.png', label: 'Torah Study', he: 'לימוד תורה', shape: 'sq' },
+    { src: G + 'photo-10.png', pos: '40% 50%', label: 'Shiurim', he: 'שיעורים', shape: 'tall' },
+    { src: G + 'photo-13.png', pos: '45% 40%', label: 'Achdus', he: 'אחדות', shape: 'sq' },
   ],
   [
-    { src: G + 'photo-10.png', label: 'Torah', he: 'תורה', shape: 'tall' },
-    { src: G + 'photo-16.png', label: 'Achdus', he: 'אחדות', shape: 'sq' },
-    { src: G + 'photo-20.png', label: 'Torah Study', he: 'לימוד תורה', shape: 'tall' },
-    { src: G + 'shiur-1.jpg', label: 'Shiurim', he: 'שיעורים', shape: 'sq' },
+    { src: G + 'photo-2.png', label: 'Achdus', he: 'אחדות', shape: 'tall' },
+    { src: G + 'shabbos-1.jpg', label: 'Shabbos', he: 'שבת', shape: 'sq' },
+    { src: G + 'photo-11.png', label: 'Torah', he: 'תורה', shape: 'tall' },
+    { src: G + 'photo-16.png', label: 'Chavrusa', he: 'חברותא', shape: 'sq' },
   ],
 ];
 
 // A pinned stack: each photo rises over the last as you scroll.
 const stack = [
-  { src: G + 'bochurim-1.jpg', pos: '50% 50%', label: 'Beis medrash', he: 'בית מדרש' },
-  { src: G + 'photo-6.png', pos: '50% 45%', label: 'Torah Study', he: 'לימוד תורה' },
-  { src: G + 'shiur-1.jpg', pos: '45% 50%', label: 'Shiurim', he: 'שיעורים' },
-  { src: G + 'photo-17.png', pos: '50% 45%', label: 'Achdus', he: 'אחדות' },
-  { src: G + 'photo-10.png', pos: '50% 40%', label: 'Chavrusa', he: 'חברותא' },
+  { src: G + 'photo-6.png', pos: '50% 50%', label: 'Shiurim', he: 'שיעורים' },
+  { src: G + 'photo-5.png', pos: '50% 40%', label: 'Torah Study', he: 'לימוד תורה' },
+  { src: G + 'photo-17.png', pos: '50% 50%', label: 'Beis medrash', he: 'בית מדרש' },
+  { src: G + 'photo-1.png', pos: '62% 45%', label: 'Chavrusa', he: 'חברותא' },
+  { src: G + 'photo-16.png', pos: '50% 45%', label: 'Achdus', he: 'אחדות' },
 ];
 
 const marqueeWords = [
@@ -563,18 +561,15 @@ export default function HomePage() {
       const stackSec = root.querySelector<HTMLElement>('.yd-stack');
       if (stackSec) {
         const cards = gsap.utils.toArray<HTMLElement>('.yd-stack-card', stackSec);
-        gsap.set(cards.slice(1), { yPercent: 100 });
-        const tl = gsap.timeline({
-          scrollTrigger: { trigger: stackSec, start: 'top top', end: 'bottom bottom', scrub: 0.5 },
-        });
+        gsap.set(cards.slice(1), { y: () => window.innerHeight, rotate: 5 });
         cards.forEach((card, i) => {
           if (i === 0) return;
           const prevCard = cards[i - 1];
           const at = i - 1;
-          tl.fromTo(card, { yPercent: 100 }, { yPercent: 0, ease: 'power2.inOut', duration: 1 }, at)
-            .fromTo(card.querySelector('img'), { yPercent: -18, scale: 1.25 }, { yPercent: 0, scale: 1.05, ease: 'power2.inOut', duration: 1 }, at)
-            .to(prevCard, { scale: 0.86, borderRadius: 28, ease: 'power2.inOut', duration: 1 }, at)
-            .to(prevCard.querySelector('.yd-stack-dim'), { opacity: 0.7, ease: 'none', duration: 1 }, at);
+          tl.fromTo(card, { y: () => window.innerHeight, rotate: 5 }, { y: 0, rotate: 0, ease: 'power2.out', duration: 1 }, at)
+            .fromTo(card.querySelector('img'), { scale: 1.35 }, { scale: 1.06, ease: 'power2.out', duration: 1 }, at)
+            .to(prevCard, { scale: 0.88, yPercent: -4, ease: 'power2.inOut', duration: 1 }, at)
+            .to(prevCard.querySelector('.yd-stack-dim'), { opacity: 0.6, ease: 'none', duration: 1 }, at);
         });
         tl.to({}, { duration: 0.35 });
         gsap.fromTo(
@@ -617,7 +612,9 @@ export default function HomePage() {
           .fromTo(mask, { scale: 1 }, { scale: 90, ease: 'power3.in', duration: 0.62 }, 0.08)
           .to(mask, { autoAlpha: 0, duration: 0.08, ease: 'none' }, 0.66)
           .fromTo('.yd-zoom-shade', { opacity: 0 }, { opacity: 1, duration: 0.2, ease: 'none' }, 0.72)
-          .fromTo('.yd-zoom-cap > *', { y: 50, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.05, duration: 0.18, ease: 'power2.out' }, 0.74);
+          .fromTo('.yd-zoom-cap .yd-kicker', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: 'power2.out' }, 0.74)
+          .fromTo('.yd-zoom-h', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.18, ease: 'power2.out' }, 0.78)
+          .fromTo('.yd-zoom-cap .yd-pill-link', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: 'power2.out' }, 0.84);
       }
 
       // "Life at the yeshiva": a pinned reel; scroll down and the photos slide sideways.
@@ -769,10 +766,13 @@ export default function HomePage() {
       {/* ── Pinned stack: photos rise over each other ───────────── */}
       <section className="yd-stack" aria-label="Moments at the yeshiva">
         <div className="yd-stack-stick">
+          <p className="yd-stack-k" aria-hidden="true">
+            <span className="yd-he">רגעים</span> Moments
+          </p>
           {stack.map((s, i) => (
             <figure key={s.src} className="yd-stack-card" style={{ zIndex: i + 1 }}>
               <div className="yd-grade yd-stack-img">
-                <Image src={s.src} alt={s.label} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: s.pos }} />
+                <Image src={s.src} alt={s.label} fill quality={66} sizes="(max-width: 900px) 100vw, 60vw" style={{ objectPosition: s.pos }} />
               </div>
               <div className="yd-stack-dim" aria-hidden="true" />
               <figcaption>

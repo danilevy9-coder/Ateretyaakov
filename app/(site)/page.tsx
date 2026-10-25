@@ -77,6 +77,28 @@ function useReveal(ready: boolean) {
   }, [ready]);
 }
 
+// ── Fit one line of type to the full width of its container ──
+function useFitText() {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const line = el.parentElement as HTMLElement;
+    const fit = () => {
+      el.style.fontSize = '100px';
+      const w = el.getBoundingClientRect().width;
+      const avail = line.clientWidth;
+      if (w > 0 && avail > 0) el.style.fontSize = `${Math.floor((100 * avail) / w) - 1}px`;
+    };
+    fit();
+    document.fonts?.ready.then(fit).catch(() => {});
+    const ro = new ResizeObserver(fit);
+    ro.observe(line);
+    return () => ro.disconnect();
+  }, []);
+  return ref;
+}
+
 // ── A small label cursor that follows the mouse over [data-cursor] items ──
 function LabelCursor() {
   const ref = useRef<HTMLDivElement>(null);
@@ -211,6 +233,7 @@ function Header() {
 }
 
 export default function HomePage() {
+  const fitRef = useFitText();
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   useReveal(ready);
@@ -236,19 +259,18 @@ export default function HomePage() {
           <span>(00)</span> Our motto
         </p>
         <h1 id="yd-motto" className="yd-motto">
-          <span className="yd-line">
-            <span className="yd-line-in">A yeshiva</span>
-          </span>
-          <span className="yd-line yd-line-2">
+          <span className="yd-line yd-l1">
             <span className="yd-line-in">
-              with a
+              A yeshiva <span className="yd-nobr">with a</span>
               <span className="yd-pill" data-cursor="Ateret Yaakov">
-                <Image src={G + 'photo-3.png'} alt="" fill priority sizes="(max-width: 768px) 40vw, 28vw" />
+                <Image src={G + 'photo-3.png'} alt="" fill priority sizes="(max-width: 768px) 50vw, 32vw" />
               </span>
             </span>
           </span>
-          <span className="yd-line">
-            <span className="yd-line-in yd-blue">difference.</span>
+          <span className="yd-line yd-l2">
+            <span ref={fitRef} className="yd-line-in yd-blue yd-fit">
+              difference.
+            </span>
           </span>
         </h1>
         <div className="yd-hero-foot">

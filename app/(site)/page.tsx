@@ -1,14 +1,9 @@
-'use client';
+use client';
 
 import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, useInView, useMotionValue, useTransform } from 'framer-motion';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
+import { motion, useInView, useScroll, useTransform } from 'framer-motion';
 
 // ── YouTube URL → embed URL ────────────────────────────────────
 function toEmbedUrl(url: string): string {
@@ -21,14 +16,10 @@ function toEmbedUrl(url: string): string {
   return url;
 }
 
-// Lazy-load the 3D canvas (SSR-safe)
-const HeroCanvas = dynamic(() => import('@/components/HeroCanvas'), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 bg-obsidian" />,
-});
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-// ── Gallery images for horizontal scroll ──────────────────────
-const scrollImages = [
+// ── Content ───────────────────────────────────────────────────
+const lifePhotos = [
   { src: '/images/gallery/beis-medrash-1.jpg', alt: 'Beis Medrash learning', label: 'Torah Study' },
   { src: '/images/gallery/shiur-1.jpg', alt: 'Shiur in session', label: 'Shiurim' },
   { src: '/images/gallery/bochurim-1.jpg', alt: 'Bochurim together', label: 'Achdus' },
@@ -37,116 +28,38 @@ const scrollImages = [
   { src: '/images/gallery/bochurim-2.jpg', alt: 'Growth and brotherhood', label: 'Brotherhood' },
 ];
 
-// ── Smart image: shows real photo if available, else gold placeholder ──
-function PlaceholderImg({
-  src,
-  label,
-  className,
-}: {
-  src?: string;
-  label: string;
-  className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
+const stats = [
+  { label: 'Bochurim', value: 40, suffix: '+' },
+  { label: 'Years Strong', value: 10, suffix: '+' },
+  { label: 'Alumni', value: 200, suffix: '+' },
+  { label: 'Daily Chaburos', value: 8, suffix: '' },
+];
 
-  return (
-    <div
-      className={`relative bg-gradient-to-br from-[#0d1b2a] to-[#0f0f13] flex items-center justify-center overflow-hidden ${className}`}
-    >
-      {/* Fallback pattern (always rendered underneath) */}
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(212,175,55,0.1) 10px, rgba(212,175,55,0.1) 11px)',
-        }}
-      />
-      <div className="relative z-10 text-center pointer-events-none select-none">
-        <div className="text-[#D4AF37]/60 text-5xl mb-3">✡</div>
-        <p className="text-white/40 text-xs font-medium">{label}</p>
-      </div>
+const hanhala = [
+  {
+    name: 'Rabbi Yehoshua Liff',
+    title: 'Rosh Yeshiva',
+    bio: 'Graduate of Yeshivat Ner Israel of Baltimore, founder of Yeshivat Ner Yaacov of Jerusalem. A visionary leader who has dedicated his life to building the next generation of Torah leaders.',
+  },
+  {
+    name: 'Rabbi Dov Ber Liff',
+    title: 'Rosh Yeshiva',
+    bio: 'Graduate of Yeshivat Givat Shaul. His genuine warmth and individual care for every bochur sets the tone for the entire yeshiva. An exceptional educator with decades of experience.',
+  },
+  {
+    name: 'Rabbi Larry Shain',
+    title: 'Mashgiach & Administrator',
+    bio: 'Co-founder and CEO of Ohr Somayach South Africa for 25 years. Brings deep professional wisdom and a warm heart to guiding each bochur on their personal journey.',
+  },
+];
 
-      {/* Real image on top — hides placeholder when loaded */}
-      {src && !failed && (
-        <Image
-          src={src}
-          alt={label}
-          fill
-          className="object-cover z-20"
-          onError={() => setFailed(true)}
-          unoptimized
-        />
-      )}
-    </div>
-  );
-}
+const CAUSEMATCH = 'https://causematch.com/yay';
+const CHARITYEXTRA = 'https://www.charityextra.com/ay';
+const INSTAGRAM = 'https://www.instagram.com/liffs_yeshiva/';
+const YOUTUBE = 'https://www.youtube.com/@ישיבתעטרתיעקב';
 
-// ── Animated Counter ─────────────────────────────────────────
-function AnimCounter({ to, suffix = '' }: { to: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  useEffect(() => {
-    if (!inView || !ref.current) return;
-    const start = 0;
-    const duration = 2000;
-    const startTime = performance.now();
-    const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      if (ref.current) ref.current.textContent = `${Math.round(eased * to)}${suffix}`;
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [inView, to, suffix]);
-  return <span ref={ref} className="stat-number">0{suffix}</span>;
-}
-
-// ── Magnetic Bento Box ────────────────────────────────────────
-function MagneticBox({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-100, 100], [4, -4]);
-  const rotateY = useTransform(x, [-100, 100], [-4, 4]);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    x.set((e.clientX - cx) * 0.3);
-    y.set((e.clientY - cy) * 0.3);
-  };
-
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
-
-  return (
-    <motion.div
-      ref={ref}
-      style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-// ── Fade-in wrapper ───────────────────────────────────────────
-function FadeIn({
+// ── Small building blocks ─────────────────────────────────────
+function Reveal({
   children,
   delay = 0,
   className,
@@ -156,13 +69,13 @@ function FadeIn({
   className?: string;
 }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const inView = useInView(ref, { once: true, margin: '-60px' });
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 40 }}
+      initial={{ opacity: 0, y: 28 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.8, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.9, delay, ease: EASE }}
       className={className}
     >
       {children}
@@ -170,624 +83,549 @@ function FadeIn({
   );
 }
 
+function Eyebrow({ children, light = false }: { children: React.ReactNode; light?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 mb-5">
+      <span className={`h-px w-8 ${light ? 'bg-gold-500' : 'bg-gold'}`} />
+      <span
+        className={`text-[11px] font-semibold tracking-[0.28em] uppercase ${
+          light ? 'text-gold-500' : 'text-gold'
+        }`}
+      >
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function Counter({ to, suffix = '' }: { to: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  useEffect(() => {
+    if (!inView) return;
+    const start = performance.now();
+    const duration = 1600;
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      if (ref.current) ref.current.textContent = `${Math.round(eased * to)}${suffix}`;
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, to, suffix]);
+  return (
+    <span ref={ref}>
+      {to}
+      {suffix}
+    </span>
+  );
+}
+
+function Initials({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .filter((w) => w !== 'Rabbi')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2);
+  return (
+    <div className="w-16 h-16 rounded-full border border-gold/40 flex items-center justify-center bg-gradient-to-br from-gold/15 to-transparent">
+      <span className="font-serif text-xl text-gold">{initials}</span>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
-// MAIN HOME PAGE
+// HOME PAGE
 // ═══════════════════════════════════════════════════════════════
 export default function HomePage() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const headlineRef = useRef<HTMLHeadingElement>(null);
-  const subRef = useRef<HTMLParagraphElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const heroImageY = useTransform(scrollYProgress, [0, 1], ['0%', '18%']);
+  const heroTextY = useTransform(scrollYProgress, [0, 1], ['0%', '30%']);
+  const heroFade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+
   const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState<string | null>(null);
 
-  // ── Fetch saved YouTube URL from settings ─────────────────
+  // Saved YouTube link from /admin → Video Settings
   useEffect(() => {
     fetch('/api/settings')
       .then((r) => r.json())
       .then((data: { youtubeUrl?: string }) => {
-        if (data.youtubeUrl) {
-          setYoutubeEmbedUrl(toEmbedUrl(data.youtubeUrl));
-        }
+        if (data.youtubeUrl) setYoutubeEmbedUrl(toEmbedUrl(data.youtubeUrl));
       })
       .catch(() => {});
-  }, []);
-
-  // ── Hero GSAP text reveal ─────────────────────────────────
-  useEffect(() => {
-    if (!headlineRef.current || !subRef.current) return;
-
-    const tl = gsap.timeline({ delay: 0.3 });
-
-    // Split headline into words
-    const headline = headlineRef.current;
-    const words = headline.innerText.split(' ');
-    headline.innerHTML = words
-      .map(
-        (w) =>
-          `<span class="inline-block overflow-hidden"><span class="inline-block word-reveal">${w}</span></span>`
-      )
-      .join(' ');
-
-    tl.fromTo(
-      '.word-reveal',
-      { y: '110%', opacity: 0, rotateX: -25 },
-      {
-        y: '0%',
-        opacity: 1,
-        rotateX: 0,
-        duration: 1,
-        stagger: 0.12,
-        ease: 'power4.out',
-      }
-    )
-      .fromTo(
-        subRef.current,
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out' },
-        '-=0.4'
-      )
-      .fromTo(
-        '.hero-cta',
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.7, stagger: 0.1, ease: 'power3.out' },
-        '-=0.5'
-      );
-  }, []);
-
-  // ── GSAP Horizontal Scroll ────────────────────────────────
-  useEffect(() => {
-    if (!scrollContainerRef.current || !scrollTrackRef.current) return;
-
-    const track = scrollTrackRef.current;
-    const totalWidth = track.scrollWidth - window.innerWidth;
-
-    const ctx = gsap.context(() => {
-      gsap.to(track, {
-        x: () => -totalWidth,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: scrollContainerRef.current,
-          start: 'top top',
-          end: () => `+=${totalWidth * 1.2}`,
-          pin: true,
-          scrub: 1.2,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-        },
-      });
-
-      // Stagger image animations
-      gsap.fromTo(
-        '.scroll-card',
-        { scale: 0.9, opacity: 0.6 },
-        {
-          scale: 1,
-          opacity: 1,
-          stagger: 0.1,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: scrollContainerRef.current,
-            start: 'top 80%',
-            end: 'top top',
-            scrub: true,
-          },
-        }
-      );
-    });
-
-    return () => ctx.revert();
   }, []);
 
   return (
     <>
       {/* ════════════════════════════════════════════════════════
-          SECTION 1: HERO
+          HERO — full-bleed photograph
       ════════════════════════════════════════════════════════ */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex items-center justify-center overflow-hidden bg-obsidian"
+        className="relative h-[100svh] min-h-[640px] w-full overflow-hidden bg-[#070b12]"
       >
-        {/* 3D Particle Background */}
-        <div className="absolute inset-0 z-0">
-          <HeroCanvas />
-        </div>
-
-        {/* Radial glow */}
-        <div className="absolute inset-0 z-0 bg-glow-gold pointer-events-none" />
-
-        {/* Bottom gradient fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-obsidian to-transparent z-10 pointer-events-none" />
-
-        {/* Hero Content */}
-        <div className="relative z-20 text-center px-6 max-w-6xl mx-auto">
-          {/* Pre-title */}
+        <motion.div style={{ y: heroImageY }} className="absolute inset-0 -top-[6%] h-[112%]">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.7 }}
-            className="flex items-center justify-center gap-3 mb-8"
+            initial={{ scale: 1.12 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 2.4, ease: EASE }}
+            className="absolute inset-0"
           >
-            <div className="h-px w-16 bg-gold/40" />
-            <span className="text-gold text-xs font-semibold tracking-[0.25em] uppercase">
-              יְשִׁיבַת עֲטֶרֶת יַעֲקֹב
-            </span>
-            <div className="h-px w-16 bg-gold/40" />
+            <Image
+              src="/images/hero/beis-medrash.png"
+              alt="Bochurim learning in the Beis Medrash of Yeshiva Ateret Yaakov"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
           </motion.div>
+        </motion.div>
+        {/* Overlays for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070b12]/80 via-[#070b12]/45 to-[#070b12]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070b12]/85 via-[#070b12]/30 to-transparent" />
 
-          {/* Main Headline */}
-          <h1
-            ref={headlineRef}
-            className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-serif font-bold text-white leading-[0.95] mb-8 perspective-1000"
-            style={{ perspective: '1000px' }}
+        <motion.div
+          style={{ y: heroTextY, opacity: heroFade }}
+          className="relative z-10 h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-end pb-36 md:pb-40"
+        >
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.3, ease: EASE }}
+            className="font-hebrew text-gold/90 text-xl md:text-2xl mb-6"
+            dir="rtl"
           >
-            Building Torah. Building Life.
+            יְשִׁיבַת עֲטֶרֶת יַעֲקֹב
+          </motion.p>
+          <h1 className="font-serif text-white font-semibold leading-[0.95] tracking-tight text-[3.25rem] sm:text-7xl lg:text-[6.5rem] max-w-4xl">
+            {['Building Torah.', 'Building Life.'].map((line, i) => (
+              <span key={line} className="block overflow-hidden pb-2">
+                <motion.span
+                  className={`block ${i === 1 ? 'italic text-gold-100' : ''}`}
+                  initial={{ y: '105%' }}
+                  animate={{ y: '0%' }}
+                  transition={{ duration: 1.1, delay: 0.45 + i * 0.15, ease: EASE }}
+                >
+                  {line}
+                </motion.span>
+              </span>
+            ))}
           </h1>
-
-          {/* Sub-headline */}
-          <p
-            ref={subRef}
-            className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-12 leading-relaxed font-light"
-            style={{ opacity: 0 }}
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.9, ease: EASE }}
+            className="mt-7 max-w-xl text-white/75 text-lg md:text-xl leading-relaxed font-light"
           >
             A yeshiva where every bochur is seen, shaped, and sent forth to lead — under the
             guidance of Rabbi Yehoshua Liff and Rabbi Dov Ber Liff.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 1.05, ease: EASE }}
+            className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
+          >
             <Link
               href="/support"
-              className="hero-cta px-8 py-4 bg-gold text-obsidian font-bold text-base rounded-full hover:shadow-[0_0_40px_rgba(212,175,55,0.5)] transition-all hover:scale-105 active:scale-100 opacity-0"
+              className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-gold text-[#0b0b0d] font-semibold tracking-wide hover:bg-gold-200 transition-colors"
             >
               Support the Yeshiva
+              <span className="transition-transform group-hover:translate-x-1">→</span>
             </Link>
             <Link
               href="/staff"
-              className="hero-cta px-8 py-4 border border-white/20 text-white font-medium text-base rounded-full hover:border-gold/50 hover:text-gold transition-all opacity-0"
+              className="inline-flex items-center justify-center px-8 py-4 rounded-full border border-white/25 text-white font-medium tracking-wide backdrop-blur-sm hover:bg-white/10 hover:border-white/40 transition-colors"
             >
-              Meet the Hanhala →
+              Meet the Hanhala
             </Link>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        {/* Scroll Indicator */}
+        {/* Stats bar */}
         <motion.div
-          className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 1.3, ease: EASE }}
+          className="absolute bottom-0 left-0 right-0 z-10 border-t border-white/10 bg-[#070b12]/60 backdrop-blur-md"
         >
-          <span className="text-white/30 text-xs tracking-widest uppercase">Scroll</span>
-          <motion.div
-            className="w-px h-10 bg-gradient-to-b from-gold/60 to-transparent"
-            animate={{ scaleY: [0, 1, 0], originY: 0 }}
-            transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-          />
+          <div className="max-w-7xl mx-auto px-6 lg:px-12 grid grid-cols-4 divide-x divide-white/10">
+            {stats.map((s) => (
+              <div key={s.label} className="py-5 md:py-6 px-2 md:px-6 text-center md:text-left">
+                <div className="font-serif text-2xl md:text-4xl text-white">
+                  <Counter to={s.value} suffix={s.suffix} />
+                </div>
+                <div className="mt-1 text-[10px] md:text-xs uppercase tracking-[0.18em] text-white/50">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 2: HORIZONTAL SCROLL — "OUR WORLD"
+          MISSION — light section
       ════════════════════════════════════════════════════════ */}
-      <section ref={scrollContainerRef} className="horizontal-scroll-container bg-obsidian">
-        <div className="h-screen flex items-center overflow-hidden relative">
-          {/* Scroll down hint */}
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex flex-col items-center gap-2">
-            <span className="text-white/40 text-[10px] tracking-[0.25em] uppercase font-semibold">Scroll to explore</span>
-            <motion.div
-              animate={{ y: [0, 7, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="flex flex-col items-center gap-1"
-            >
-              <div className="w-px h-5 bg-gradient-to-b from-transparent to-[#D4AF37]/50" />
-              <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-                <path d="M1 1l4 4 4-4" stroke="rgba(212,175,55,0.55)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </motion.div>
-          </div>
-
-          <div ref={scrollTrackRef} className="flex gap-6 pl-[10vw] pr-[10vw] will-change-transform">
-            {/* Intro card */}
-            <div className="scroll-card flex-none w-[40vw] min-w-[320px] flex flex-col justify-center pr-16">
-              <div className="h-px w-16 bg-gold/40 mb-6" />
-              <h2 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 leading-tight">
-                Life at the{' '}
-                <span className="gold-shimmer">Yeshiva</span>
-              </h2>
-              <p className="text-white/50 text-lg leading-relaxed">
-                From morning seder to late-night chavrusa — every moment is an opportunity
-                to grow in Torah and become the best version of yourself.
-              </p>
-            </div>
-
-            {/* Image Cards */}
-            {scrollImages.map((img, i) => (
-              <div
-                key={i}
-                className={`scroll-card flex-none rounded-2xl overflow-hidden border border-white/5 ${
-                  i % 2 === 0 ? 'w-[35vw] h-[65vh] self-center' : 'w-[28vw] h-[50vh] self-end mb-8'
-                }`}
-              >
-                <div className="relative w-full h-full group">
-                  <PlaceholderImg src={img.src} label={img.alt} className="w-full h-full" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-obsidian/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 p-6">
-                    <span className="text-gold text-xs tracking-widest uppercase font-semibold">
-                      {img.label}
-                    </span>
-                  </div>
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                </div>
-              </div>
-            ))}
-
-            {/* End card */}
-            <div className="scroll-card flex-none w-[35vw] min-w-[280px] flex flex-col justify-center pl-16">
-              <p className="text-gold/60 text-sm tracking-widest uppercase mb-4">Join Our Community</p>
-              <h3 className="text-3xl md:text-4xl font-serif text-white mb-6 leading-tight">
-                Ready to be part of something extraordinary?
-              </h3>
-              <Link
-                href="/support"
-                className="inline-block px-6 py-3 bg-gold text-obsidian font-semibold rounded-full hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all w-fit"
-              >
-                Support the Mission
+      <section className="bg-cream text-[#14161c] py-24 md:py-36 px-6 lg:px-12">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          <Reveal className="lg:col-span-7">
+            <Eyebrow light>Our Mission</Eyebrow>
+            <blockquote className="font-serif text-3xl md:text-5xl leading-[1.15] tracking-tight">
+              “Every bochur who walks through our doors carries the potential for{' '}
+              <em className="text-gold-500">greatness</em> — our job is to help them discover
+              it.”
+            </blockquote>
+            <p className="mt-8 text-sm tracking-wide text-[#14161c]/60">
+              — Rabbi Yehoshua Liff, Rosh Yeshiva
+            </p>
+            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm font-medium">
+              <Link href="/staff" className="hover-underline text-[#14161c]">
+                Meet the Hanhala →
+              </Link>
+              <Link href="/gallery" className="hover-underline text-[#14161c]">
+                Visit the gallery →
               </Link>
             </div>
+          </Reveal>
+          <Reveal delay={0.15} className="lg:col-span-5">
+            <div className="relative aspect-[4/5] rounded-[28px] overflow-hidden shadow-[0_30px_80px_-30px_rgba(20,22,28,0.45)]">
+              <Image
+                src="/images/gallery/rabbi-liff-teaching.jpg"
+                alt="Rabbi Liff teaching"
+                fill
+                sizes="(min-width: 1024px) 40vw, 100vw"
+                className="object-cover"
+              />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════
+          LIFE AT THE YESHIVA — photo grid
+      ════════════════════════════════════════════════════════ */}
+      <section className="bg-[#efe8dc] text-[#14161c] py-24 md:py-32 px-6 lg:px-12">
+        <div className="max-w-7xl mx-auto">
+          <Reveal className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12 md:mb-16">
+            <div>
+              <Eyebrow light>Life at the Yeshiva</Eyebrow>
+              <h2 className="font-serif text-4xl md:text-6xl tracking-tight leading-[1.05] max-w-2xl">
+                Every moment, a chance to grow.
+              </h2>
+            </div>
+            <p className="max-w-md text-[#14161c]/65 leading-relaxed">
+              From morning seder to late-night chavrusa — every moment is an opportunity to grow in
+              Torah and become the best version of yourself.
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[180px] md:auto-rows-[240px] gap-3 md:gap-4">
+            {lifePhotos.map((p, i) => {
+              const span =
+                i === 0
+                  ? 'col-span-2 row-span-2'
+                  : i === 3
+                  ? 'col-span-2 md:col-span-2'
+                  : 'col-span-1';
+              return (
+                <Reveal key={p.src} delay={(i % 3) * 0.08} className={`${span} h-full`}>
+                  <div className="group relative h-full w-full overflow-hidden rounded-2xl md:rounded-3xl bg-[#d9d0c1]">
+                    <Image
+                      src={p.src}
+                      alt={p.alt}
+                      fill
+                      sizes={i === 0 ? '(min-width: 768px) 50vw, 100vw' : '(min-width: 768px) 25vw, 50vw'}
+                      className="object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+                    <span className="absolute left-4 bottom-4 text-white text-[11px] md:text-xs font-semibold uppercase tracking-[0.2em]">
+                      {p.label}
+                    </span>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+
+          <Reveal className="mt-12 flex justify-center">
+            <Link
+              href="/gallery"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-[#14161c]/20 text-[#14161c] font-medium hover:bg-[#14161c] hover:text-cream transition-colors"
+            >
+              See the full gallery →
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════
+          HANHALA PREVIEW — dark section
+      ════════════════════════════════════════════════════════ */}
+      <section className="relative bg-[#0b111b] py-24 md:py-36 px-6 lg:px-12 overflow-hidden">
+        <div className="pointer-events-none absolute -top-40 right-0 w-[640px] h-[640px] rounded-full bg-gold/[0.06] blur-3xl" />
+        <div className="relative max-w-7xl mx-auto">
+          <Reveal className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14">
+            <div>
+              <Eyebrow>Leadership</Eyebrow>
+              <h2 className="font-serif text-4xl md:text-6xl text-white tracking-tight leading-[1.05]">
+                Meet the Hanhala
+              </h2>
+            </div>
+            <Link href="/staff" className="text-gold font-medium hover-underline self-start md:self-auto">
+              View full team →
+            </Link>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-px bg-white/10 rounded-3xl overflow-hidden border border-white/10">
+            {hanhala.map((r, i) => (
+              <Reveal key={r.name} delay={i * 0.1} className="h-full">
+                <Link
+                  href="/staff"
+                  className="group flex flex-col h-full bg-[#0b111b] p-8 md:p-10 hover:bg-[#101827] transition-colors"
+                >
+                  <Initials name={r.name} />
+                  <div className="mt-8 text-gold text-[11px] font-semibold tracking-[0.24em] uppercase">
+                    {r.title}
+                  </div>
+                  <h3 className="mt-2 font-serif text-2xl md:text-[1.7rem] text-white group-hover:text-gold-100 transition-colors">
+                    {r.name}
+                  </h3>
+                  <p className="mt-4 text-white/55 text-[15px] leading-relaxed">{r.bio}</p>
+                  <span className="mt-auto pt-8 text-sm text-white/40 group-hover:text-gold transition-colors">
+                    Read bio →
+                  </span>
+                </Link>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 3: MISSION STATEMENT
+          WATCH & FOLLOW
       ════════════════════════════════════════════════════════ */}
-      <section className="py-32 px-6 bg-obsidian relative overflow-hidden">
-        <div className="absolute inset-0 bg-glow-gold opacity-40 pointer-events-none" />
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <FadeIn>
-            <div className="text-gold/50 text-xs tracking-[0.3em] uppercase mb-6 font-semibold">
-              Our Mission
-            </div>
-            <blockquote className="text-3xl md:text-5xl font-serif font-medium text-white leading-tight mb-10">
-              "Every bochur who walks through our doors carries the potential for
-              <span className="text-gold"> greatness</span> — our job is to help them
-              discover it."
-            </blockquote>
-            <cite className="text-white/40 text-sm not-italic">
-              — Rabbi Yehoshua Liff, Rosh Yeshiva
-            </cite>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          SECTION 4: BENTO GRID — MEDIA HUB
-      ════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6 bg-obsidian-100">
-        <div className="max-w-7xl mx-auto">
-          <FadeIn className="text-center mb-16">
-            <div className="text-gold/50 text-xs tracking-[0.3em] uppercase mb-4 font-semibold">
-              Connect With Us
-            </div>
-            <h2 className="text-4xl md:text-6xl font-serif font-bold text-white">
-              The Hub
-            </h2>
-          </FadeIn>
-
-          {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[340px]">
-            {/* YouTube — wide */}
-            <MagneticBox className="lg:col-span-2 glass rounded-2xl overflow-hidden group">
-              <div className="relative w-full h-full flex flex-col">
-                <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-white/60 text-xs font-medium">Latest Torah Content</span>
-                </div>
-                <div className="flex-1 video-container">
-                  {youtubeEmbedUrl ? (
-                    <iframe
-                      src={youtubeEmbedUrl}
-                      title="Yeshiva Ateret Yaakov YouTube"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="rounded-none"
+      <section className="bg-[#0b111b] pb-24 md:pb-36 px-6 lg:px-12">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
+          {/* YouTube */}
+          <Reveal className="lg:col-span-8">
+            <div className="h-full rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03]">
+              <div className="aspect-video bg-black">
+                {youtubeEmbedUrl ? (
+                  <iframe
+                    src={youtubeEmbedUrl}
+                    title="Yeshiva Ateret Yaakov YouTube"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <a
+                    href={YOUTUBE}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative block w-full h-full"
+                  >
+                    <Image
+                      src="/images/gallery/shiur-1.jpg"
+                      alt="Torah shiurim on YouTube"
+                      fill
+                      sizes="(min-width: 1024px) 66vw, 100vw"
+                      className="object-cover opacity-60 group-hover:opacity-75 transition-opacity"
                     />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-black/40 gap-4">
-                      <div className="w-16 h-16 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center text-3xl">▶</div>
-                      <div className="text-center">
-                        <p className="text-white/60 text-sm font-semibold">No video set yet</p>
-                        <p className="text-white/30 text-xs mt-1">Go to <span className="text-amber-400">/admin</span> → Video Settings to add a YouTube link</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 bg-gradient-to-t from-obsidian to-transparent absolute bottom-0 left-0 right-0">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-semibold text-sm">Torah Shiurim & Content</p>
-                      <p className="text-white/40 text-xs">@ישיבתעטרתיעקב on YouTube</p>
-                    </div>
-                    <a
-                      href="https://www.youtube.com/@ישיבתעטרתיעקב"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 border border-red-500/40 text-red-400 text-xs rounded-full hover:bg-red-500/10 transition-colors"
-                    >
-                      Subscribe →
-                    </a>
-                  </div>
-                </div>
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="w-20 h-20 rounded-full bg-white/90 text-[#0b111b] flex items-center justify-center text-2xl pl-1 group-hover:scale-105 transition-transform">
+                        ▶
+                      </span>
+                    </span>
+                  </a>
+                )}
               </div>
-            </MagneticBox>
-
-            {/* Instagram */}
-            <MagneticBox className="glass rounded-2xl overflow-hidden flex flex-col">
-              <div className="p-5 flex items-center justify-between border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-xs font-bold text-white">
-                    IG
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-semibold">@liffs_yeshiva</p>
-                    <p className="text-white/40 text-xs">Instagram</p>
-                  </div>
+              <div className="flex items-center justify-between gap-4 p-6 md:p-8">
+                <div>
+                  <p className="text-white font-serif text-xl">Torah Shiurim &amp; Content</p>
+                  <p className="text-white/45 text-sm mt-1">@ישיבתעטרתיעקב on YouTube</p>
                 </div>
                 <a
-                  href="https://www.instagram.com/liffs_yeshiva/"
+                  href={YOUTUBE}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gold hover:text-gold/80 font-medium"
+                  className="shrink-0 px-5 py-2.5 rounded-full border border-white/20 text-white text-sm hover:bg-white hover:text-[#0b111b] transition-colors"
                 >
-                  Follow →
+                  Subscribe
                 </a>
               </div>
-              <div className="flex-1 grid grid-cols-3 gap-0.5 p-0.5">
-                {[1,2,3,4,5,6].map((n) => (
-                  <div
-                    key={n}
-                    className="aspect-square relative overflow-hidden hover:opacity-80 transition-opacity cursor-pointer bg-[#0d1b2a]"
-                  >
-                    <PlaceholderImg
+            </div>
+          </Reveal>
+
+          {/* Instagram */}
+          <Reveal delay={0.1} className="lg:col-span-4">
+            <div className="h-full flex flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-serif text-xl">@liffs_yeshiva</p>
+                  <p className="text-white/45 text-sm mt-1">Daily Torah inspiration &amp; yeshiva life</p>
+                </div>
+              </div>
+              <div className="mt-6 grid grid-cols-3 gap-2 flex-1">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <div key={n} className="relative aspect-square rounded-xl overflow-hidden bg-white/5">
+                    <Image
                       src={`/images/gallery/photo-${n}.png`}
-                      label=""
-                      className="w-full h-full"
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 10vw, 33vw"
+                      className="object-cover"
                     />
                   </div>
                 ))}
               </div>
-              <div className="p-4 border-t border-white/5">
-                <p className="text-white/40 text-xs text-center">
-                  Follow for daily Torah inspiration & yeshiva life
-                </p>
-              </div>
-            </MagneticBox>
-
-            {/* CauseMatch Campaign */}
-            <MagneticBox className="relative glass rounded-2xl overflow-hidden animate-glow-pulse">
-              <div className="absolute inset-0 bg-gradient-to-br from-gold/10 to-transparent pointer-events-none" />
-              <div className="relative h-full p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-                    <span className="text-gold text-xs font-semibold tracking-wider uppercase">
-                      Live Campaign
-                    </span>
-                  </div>
-                  <h3 className="text-white text-xl font-serif font-bold mb-2">
-                    CauseMatch Campaign
-                  </h3>
-                  <p className="text-white/50 text-sm leading-relaxed">
-                    Support our bochurim's Torah journey. Every dollar matched — double the
-                    impact.
-                  </p>
-                </div>
-                <div>
-                  {/* Progress bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-white/40 mb-1.5">
-                      <span>Campaign Progress</span>
-                      <span className="text-gold font-semibold">
-                        <AnimCounter to={73} suffix="%" />
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gold rounded-full"
-                        initial={{ width: 0 }}
-                        whileInView={{ width: '73%' }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 1.5, ease: 'easeOut' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <a
-                      href="https://causematch.com/yay"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-2.5 bg-gold text-obsidian font-bold text-sm rounded-xl text-center hover:bg-gold/90 transition-colors"
-                    >
-                      Donate on CauseMatch
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </MagneticBox>
-
-            {/* Stats Box */}
-            <MagneticBox className="glass rounded-2xl p-6 flex flex-col justify-between">
-              <div>
-                <div className="text-gold/50 text-xs tracking-widest uppercase mb-4 font-semibold">
-                  Yeshiva by the Numbers
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: 'Bochurim', value: 40, suffix: '+' },
-                    { label: 'Years Strong', value: 10, suffix: '+' },
-                    { label: 'Alumni', value: 200, suffix: '+' },
-                    { label: 'Daily Chaburos', value: 8, suffix: '' },
-                  ].map((stat) => (
-                    <div key={stat.label} className="text-center">
-                      <div className="text-3xl font-bold text-white mb-1">
-                        <AnimCounter to={stat.value} suffix={stat.suffix} />
-                      </div>
-                      <div className="text-white/40 text-xs">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="divider-gold my-4" />
-              <div>
-                <p className="text-white/30 text-xs text-center">
-                  Growing stronger every year through Torah and dedication
-                </p>
-              </div>
-            </MagneticBox>
-
-            {/* CharityExtra */}
-            <MagneticBox className="glass rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-navy/40 rounded-full -translate-y-20 translate-x-20 blur-3xl" />
-              <div>
-                <div className="text-xs text-gold/60 font-semibold tracking-widest uppercase mb-3">
-                  UK Donors — Tax Relief
-                </div>
-                <h3 className="text-white text-xl font-serif font-bold mb-2">
-                  CharityExtra
-                </h3>
-                <p className="text-white/50 text-sm">
-                  UK-based? Donate through CharityExtra and qualify for Gift Aid — maximise
-                  your impact at no extra cost.
-                </p>
-              </div>
               <a
-                href="https://www.charityextra.com/ay"
+                href={INSTAGRAM}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 py-3 border border-gold/30 text-gold font-semibold text-sm rounded-xl text-center hover:bg-gold/10 hover:border-gold/60 transition-all"
+                className="mt-6 inline-flex justify-center px-5 py-3 rounded-full bg-white text-[#0b111b] text-sm font-semibold hover:bg-gold transition-colors"
               >
-                Donate via CharityExtra →
+                Follow on Instagram
               </a>
-            </MagneticBox>
-          </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 5: MEET THE HANHALA (PREVIEW)
+          SUPPORT — light section
       ════════════════════════════════════════════════════════ */}
-      <section className="py-32 px-6 bg-obsidian relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-navy/20 blur-3xl" />
-        </div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <FadeIn className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16 gap-6">
-            <div>
-              <div className="text-gold/50 text-xs tracking-[0.3em] uppercase mb-4 font-semibold">
-                Leadership
-              </div>
-              <h2 className="text-4xl md:text-6xl font-serif font-bold text-white">
-                Meet the<br />
-                <span className="gold-shimmer">Hanhala</span>
-              </h2>
-            </div>
-            <Link
-              href="/staff"
-              className="px-6 py-3 border border-white/10 text-white/70 rounded-full text-sm hover:border-gold/50 hover:text-gold transition-all"
-            >
-              View Full Team →
-            </Link>
-          </FadeIn>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                name: 'Rabbi Yehoshua Liff',
-                title: 'Rosh Yeshiva',
-                bio: 'Graduate of Yeshivat Ner Israel of Baltimore, founder of Yeshivat Ner Yaacov of Jerusalem. A visionary leader who has dedicated his life to building the next generation of Torah leaders.',
-                img: '/images/staff/rabbi-yehoshua-liff.jpg',
-              },
-              {
-                name: 'Rabbi Dov Ber Liff',
-                title: 'Rosh Yeshiva',
-                bio: 'Graduate of Yeshivat Givat Shaul. His genuine warmth and individual care for every bochur sets the tone for the entire yeshiva. An exceptional educator with decades of experience.',
-                img: '/images/staff/rabbi-dov-ber-liff.jpg',
-              },
-              {
-                name: 'Rabbi Larry Shain',
-                title: 'Mashgiach & Administrator',
-                bio: 'Co-founder and CEO of Ohr Somayach South Africa for 25 years. Brings deep professional wisdom and a warm heart to guiding each bochur on their personal journey.',
-                img: '/images/staff/rabbi-larry-shain.jpg',
-              },
-            ].map((rabbi, i) => (
-              <FadeIn key={rabbi.name} delay={i * 0.1}>
-                <Link href="/staff" className="group block">
-                  <div className="glass rounded-2xl overflow-hidden border border-white/5 hover:border-gold/20 transition-all duration-500">
-                    <div className="relative h-72 overflow-hidden">
-                      <PlaceholderImg src={rabbi.img} label={rabbi.name} className="w-full h-full" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-transparent to-transparent" />
-                    </div>
-                    <div className="p-6">
-                      <div className="text-gold text-xs font-semibold tracking-widest uppercase mb-2">
-                        {rabbi.title}
-                      </div>
-                      <h3 className="text-white text-xl font-serif font-bold mb-3 group-hover:text-gold transition-colors">
-                        {rabbi.name}
-                      </h3>
-                      <p className="text-white/50 text-sm leading-relaxed line-clamp-3">
-                        {rabbi.bio}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          SECTION 6: FINAL CTA
-      ════════════════════════════════════════════════════════ */}
-      <section className="py-40 px-6 bg-obsidian-100 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-obsidian via-navy/20 to-obsidian pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gold/5 blur-3xl" />
-        </div>
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <FadeIn>
-            <div className="text-gold/50 text-xs tracking-[0.3em] uppercase mb-6 font-semibold">
-              Partner With Us
-            </div>
-            <h2 className="text-5xl md:text-7xl font-serif font-bold text-white mb-8 leading-tight">
-              Be Part of the{' '}
-              <span className="gold-shimmer">Story</span>
+      <section className="bg-cream text-[#14161c] py-24 md:py-36 px-6 lg:px-12">
+        <div className="max-w-7xl mx-auto">
+          <Reveal className="max-w-3xl mb-14">
+            <Eyebrow light>Partner With Us</Eyebrow>
+            <h2 className="font-serif text-4xl md:text-6xl tracking-tight leading-[1.05]">
+              Your support builds the next generation.
             </h2>
-            <p className="text-white/50 text-lg mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="mt-6 text-lg text-[#14161c]/65 leading-relaxed">
               Your support empowers bochurim to reach their potential. Every donation is an
               investment in the future of Torah, with matching opportunities available.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          </Reveal>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* CauseMatch */}
+            <Reveal className="h-full">
+              <div className="h-full flex flex-col rounded-3xl bg-[#0b111b] text-white p-8 md:p-10 shadow-[0_30px_80px_-40px_rgba(11,17,27,0.6)]">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-gold" />
+                  </span>
+                  Live Campaign
+                </div>
+                <h3 className="mt-5 font-serif text-3xl md:text-4xl">CauseMatch Campaign</h3>
+                <p className="mt-3 text-white/60 leading-relaxed">
+                  Support our bochurim&apos;s Torah journey. Every dollar matched — double the impact.
+                </p>
+                <div className="mt-10">
+                  <div className="flex justify-between text-sm text-white/50 mb-3">
+                    <span>Campaign Progress</span>
+                    <span className="text-gold font-semibold">
+                      <Counter to={73} suffix="%" />
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      whileInView={{ width: '73%' }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 1.6, ease: EASE }}
+                      className="h-full rounded-full bg-gradient-to-r from-gold-400 to-gold-100"
+                    />
+                  </div>
+                </div>
+                <a
+                  href={CAUSEMATCH}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-10 md:mt-auto md:pt-10"
+                >
+                  <span className="flex justify-center px-6 py-4 rounded-full bg-gold text-[#0b0b0d] font-semibold hover:bg-gold-200 transition-colors">
+                    Donate on CauseMatch
+                  </span>
+                </a>
+              </div>
+            </Reveal>
+
+            {/* CharityExtra */}
+            <Reveal delay={0.1} className="h-full">
+              <div className="h-full flex flex-col rounded-3xl bg-white border border-[#14161c]/10 p-8 md:p-10">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-500">
+                  UK Donors — Tax Relief
+                </div>
+                <h3 className="mt-5 font-serif text-3xl md:text-4xl">CharityExtra</h3>
+                <p className="mt-3 text-[#14161c]/65 leading-relaxed">
+                  UK-based? Donate through CharityExtra and qualify for Gift Aid — maximise your
+                  impact at no extra cost.
+                </p>
+                <a
+                  href={CHARITYEXTRA}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-10 md:mt-auto md:pt-10"
+                >
+                  <span className="flex justify-center px-6 py-4 rounded-full border border-[#14161c]/20 font-semibold hover:bg-[#14161c] hover:text-cream transition-colors">
+                    Donate via CharityExtra →
+                  </span>
+                </a>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════
+          FINAL CTA — photo
+      ════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden py-32 md:py-44 px-6 lg:px-12">
+        <Image
+          src="/images/hero/bochurim.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-[#070b12]/80" />
+        <div className="relative max-w-4xl mx-auto text-center">
+          <Reveal>
+            <h2 className="font-serif text-5xl md:text-7xl text-white tracking-tight leading-[1.02]">
+              Be part of the <em className="text-gold-100">story</em>.
+            </h2>
+            <p className="mt-6 text-white/70 text-lg max-w-xl mx-auto leading-relaxed">
+              Ready to be part of something extraordinary? Join the families and friends who make
+              Ateret Yaakov possible.
+            </p>
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <a
-                href="https://causematch.com/yay"
+                href={CAUSEMATCH}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-10 py-5 bg-gold text-obsidian font-bold text-lg rounded-full hover:shadow-[0_0_50px_rgba(212,175,55,0.5)] hover:scale-105 transition-all active:scale-100 glow-gold"
+                className="w-full sm:w-auto px-9 py-4 rounded-full bg-gold text-[#0b0b0d] font-semibold hover:bg-gold-200 transition-colors"
               >
                 Donate on CauseMatch
               </a>
               <a
-                href="https://www.charityextra.com/ay"
+                href={CHARITYEXTRA}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-10 py-5 border border-gold/30 text-gold font-semibold text-lg rounded-full hover:bg-gold/10 hover:border-gold/60 transition-all"
+                className="w-full sm:w-auto px-9 py-4 rounded-full border border-white/30 text-white font-medium hover:bg-white/10 transition-colors"
               >
                 CharityExtra (UK)
               </a>
             </div>
-          </FadeIn>
+          </Reveal>
         </div>
       </section>
     </>

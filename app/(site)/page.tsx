@@ -38,7 +38,7 @@ const stats = [
 const hanhala = [
   {
     name: 'Rabbi Yehoshua Liff',
-    title: 'Rosh Yeshiva',
+    title: 'Maggid Shiur',
     bio: 'Graduate of Yeshivat Ner Israel of Baltimore, founder of Yeshivat Ner Yaacov of Jerusalem. A visionary leader who has dedicated his life to building the next generation of Torah leaders.',
   },
   {
@@ -282,7 +282,7 @@ export default function HomePage() {
               it.”
             </blockquote>
             <p className="mt-8 text-sm tracking-wide text-[#14161c]/60">
-              — Rabbi Yehoshua Liff, Rosh Yeshiva
+              — Rabbi Yehoshua Liff
             </p>
             <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm font-medium">
               <Link href="/staff" className="hover-underline text-[#14161c]">

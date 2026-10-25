@@ -197,7 +197,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.3, ease: EASE }}
-            className="font-hebrew text-gold/90 text-xl md:text-2xl mb-6"
+            className="self-start font-hebrew text-gold/90 text-xl md:text-2xl mb-6"
             dir="rtl"
           >
             יְשִׁיבַת עֲטֶרֶת יַעֲקֹב
@@ -325,13 +325,14 @@ export default function HomePage() {
             </p>
           </Reveal>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[180px] md:auto-rows-[240px] gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 auto-rows-[160px] sm:auto-rows-[200px] md:auto-rows-[260px] gap-3 md:gap-4">
             {lifePhotos.map((p, i) => {
+              // Desktop: big photo + two stacked, then a row of three. Mobile: 2-column mosaic.
               const span =
                 i === 0
                   ? 'col-span-2 row-span-2'
-                  : i === 3
-                  ? 'col-span-2 md:col-span-2'
+                  : i === lifePhotos.length - 1
+                  ? 'col-span-2 md:col-span-1'
                   : 'col-span-1';
               return (
                 <Reveal key={p.src} delay={(i % 3) * 0.08} className={`${span} h-full`}>
@@ -340,7 +341,7 @@ export default function HomePage() {
                       src={p.src}
                       alt={p.alt}
                       fill
-                      sizes={i === 0 ? '(min-width: 768px) 50vw, 100vw' : '(min-width: 768px) 25vw, 50vw'}
+                      sizes={i === 0 ? '(min-width: 768px) 66vw, 100vw' : '(min-width: 768px) 33vw, 50vw'}
                       className="object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />

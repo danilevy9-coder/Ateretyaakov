@@ -83,7 +83,7 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
 .yd-menu-btn.is-open .yd-burger i:last-child { top: 4px; transform: rotate(-45deg); }
 
 .yd-donate {
-  position: fixed; z-index: 61; top: 12px; inset-inline-end: var(--pad);
+  position: relative;
   height: 40px; padding: 0 16px; display: inline-flex; align-items: center;
   border-radius: 999px; background: var(--blue); color: #fff;
   font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
@@ -620,3 +620,21 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
 @keyframes yd-marq-rtl { to { transform: translate3d(50%, 0, 0); } }
 .yd[dir='rtl'] .yd-hero-kicker { font-size: 15px; }
 .yd[dir='rtl'] .yd-tier-amt { font-family: var(--yd-display), sans-serif; }
+
+/* ── v3.1 fixes ── */
+.yd-header, .yd-donate-wrap { transition: transform 0.5s var(--ease); }
+.yd-header.is-hidden { transform: translate3d(0, -110%, 0); }
+.yd-donate-wrap { position: fixed; z-index: 61; top: 12px; inset-inline-end: var(--pad); }
+.yd-donate-wrap.is-hidden { transform: translate3d(0, -90px, 0); }
+.yd-mark { white-space: nowrap; font-size: 17px; }
+.yd-menu-btn { margin-inline-start: auto; }
+.yd-header .yd-lang + .yd-menu-btn { margin-inline-start: 0; }
+/* reel: the closing tile is a frame the same height as the photos, right after the last one */
+.yd-reel-end {
+  flex: 0 0 54vw; justify-content: flex-end; gap: 16px; padding: 22px; margin: 0;
+  border: 1px solid rgba(242, 239, 232, 0.22); border-radius: 6px; aspect-ratio: 4 / 5; align-self: flex-start;
+  font-size: clamp(30px, 8.4vw, 72px);
+}
+.yd-motion .yd-reel-end { aspect-ratio: auto; height: 52vh; height: 52svh; }
+.yd-motion .yd-reel-stick { padding-top: 56px; }
+@media (min-width: 900px) { .yd-reel-end { flex-basis: 24vw; } .yd-motion .yd-reel-end { height: 60vh; } }

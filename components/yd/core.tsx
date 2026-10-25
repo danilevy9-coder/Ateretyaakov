@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { Bricolage_Grotesque, Inter_Tight, Frank_Ruhl_Libre, Heebo, Karantina } from 'next/font/google';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useLang } from '@/lib/yd/lang';
+import { HEBREW_ENABLED, useLang } from '@/lib/yd/lang';
 import type { HanhalaMember } from '@/data/hanhala';
 import './yd.css';
 
@@ -226,6 +226,7 @@ export function useStaffName() {
 
 function LangToggle({ className = '' }: { className?: string }) {
   const { lang, t, setLang } = useLang();
+  if (!HEBREW_ENABLED) return null;
   return (
     <button
       type="button"
@@ -245,8 +246,24 @@ function Header() {
   const { t } = useLang();
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const donateRef = useMagnetic<HTMLAnchorElement>(0.3);
   useEffect(() => setOpen(false), [path]);
+  // Slide the header away while scrolling down (so it never sits on top of a heading), back on scroll up.
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => {
+      const y = window.scrollY;
+      const d = y - last;
+      if (y < 120) setHidden(false);
+      else if (d > 6) setHidden(true);
+      else if (d < -6) setHidden(false);
+      if (Math.abs(d) > 6) last = y;
+    };
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
+  const hide = hidden && !open;
   useEffect(() => {
     document.documentElement.classList.toggle('yd-locked', open);
     return () => document.documentElement.classList.remove('yd-locked');
@@ -258,7 +275,7 @@ function Header() {
   ];
   return (
     <>
-      <header className="yd-header">
+      <header className={`yd-header ${hide ? 'is-hidden' : ''}`}>
         <Link href="/" className="yd-mark" aria-label={t.meta.fullName}>
           <span className="yd-mark-star" aria-hidden="true">✶</span>
           <span>{t.meta.name}</span>
@@ -285,11 +302,13 @@ function Header() {
           </span>
         </button>
       </header>
-      <a ref={donateRef} className="yd-donate" href={DONATE} target="_blank" rel="noopener noreferrer" data-cursor={t.nav.donate}>
-        <span data-magnet-inner>
-          {t.nav.donate} <span aria-hidden="true">↗</span>
-        </span>
-      </a>
+      <div className={`yd-donate-wrap ${hide ? 'is-hidden' : ''}`}>
+        <a ref={donateRef} className="yd-donate" href={DONATE} target="_blank" rel="noopener noreferrer" data-cursor={t.nav.donate}>
+          <span data-magnet-inner>
+            {t.nav.donate} <span aria-hidden="true">↗</span>
+          </span>
+        </a>
+      </div>
       <div id="yd-menu" className={`yd-menu ${open ? 'is-open' : ''}`} aria-hidden={!open} data-lenis-prevent>
         <ul>
           {[{ n: '00', href: '/', label: t.nav.home, alt: '' }, ...links].map((l, i) => (

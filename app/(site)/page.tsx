@@ -56,7 +56,7 @@ const riverCols: Pic[][] = [
 const stack: Pic[] = [
   { src: G + 'photo-6.png', pos: '50% 50%', w: 'shiurim' },
   { src: G + 'photo-5.png', pos: '50% 40%', w: 'torahStudy' },
-  { src: G + 'photo-17.png', pos: '50% 50%', w: 'beisMedrash' },
+  { src: G + 'beis-medrash-seder.jpg', pos: '55% 50%', w: 'beisMedrash' },
   { src: G + 'photo-1.png', pos: '62% 45%', w: 'chavrusa' },
   { src: G + 'photo-16.png', pos: '50% 45%', w: 'achdus' },
 ];
@@ -324,7 +324,7 @@ export default function HomePage() {
         <div className="yd-idea-grid">
           <figure className="yd-idea-fig" data-cursor={word('guidance')[0]}>
             <div className="yd-unmask yd-grade">
-              <Image src={G + 'photo-12.png'} alt={word('shiur')[0]} fill quality={70} sizes="(max-width: 900px) 100vw, 45vw" />
+              <Image src={G + 'shiur-rav.jpg'} alt={t.home.altShiur} fill quality={70} sizes="(max-width: 900px) 100vw, 45vw" style={{ objectPosition: '50% 30%' }} />
             </div>
             <figcaption>
               <span>{t.home.fig}</span> {word('guidance')[0]} <i className="yd-accent">{word('guidance')[1]}</i>
@@ -411,7 +411,7 @@ export default function HomePage() {
       <section className="yd-zoom" aria-labelledby="yd-zoom-h">
         <div className="yd-zoom-stick">
           <div className="yd-zoom-media yd-grade">
-            <Image src={G + 'bochurim-2.jpg'} alt={t.home.insideAccent} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" />
+            <Image src={G + 'beis-medrash-full.jpg'} alt={t.home.altBeisMedrash} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: '78% 50%' }} />
           </div>
           <div className="yd-zoom-shade" aria-hidden="true" />
           <div className="yd-zoom-mask" aria-hidden="true">

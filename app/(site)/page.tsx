@@ -327,7 +327,7 @@ export default function HomePage() {
               <Image src={G + 'shiur-rav.jpg'} alt={t.home.altShiur} fill quality={70} sizes="(max-width: 900px) 100vw, 45vw" style={{ objectPosition: '50% 30%' }} />
             </div>
             <figcaption>
-              <span>{t.home.fig}</span> {word('guidance')[0]} <i className="yd-accent">{word('guidance')[1]}</i>
+              <span>{t.home.fig}</span> {t.home.figShiur}
             </figcaption>
           </figure>
           <div className="yd-idea-text">

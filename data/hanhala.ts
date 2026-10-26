@@ -24,7 +24,7 @@ export const hanhala: HanhalaMember[] = [
     surname: 'Liff',
     hebrewName: 'הרב דב בר ליף',
     role: 'Rosh Yeshiva',
-    photo: null, // -> '/images/hanhala/dov-ber-liff.jpg'
+    photo: '/images/hanhala/dov-ber-liff.jpg', // crop of the shiur photo (Dani named him, 26 Oct 2026)
     bio: 'Graduate of Yeshivat Givat Shaul. His genuine warmth and individual care for every bochur sets the tone for the entire yeshiva.',
   },
   {

@@ -75,7 +75,7 @@ export default function GalleryPage() {
                 <figure key={item.src} className={`yd-river-item yd-shape-${SHAPES[idx % SHAPES.length]}`} data-cursor={item[lang]}>
                   <button type="button" className="yd-river-open" onClick={() => setOpen(idx)} aria-label={item[lang]}>
                     <div className="yd-river-img yd-grade">
-                      <Image src={G + item.src} alt={item[lang]} fill quality={65} sizes="(max-width: 900px) 50vw, 33vw" />
+                      <Image src={G + item.src} alt={item.alt?.[lang] ?? item[lang]} fill quality={65} sizes="(max-width: 900px) 50vw, 33vw" />
                     </div>
                   </button>
                   <figcaption>
@@ -105,7 +105,7 @@ export default function GalleryPage() {
       {cur && open !== null && (
         <div className="yd-lightbox" role="dialog" aria-modal="true" aria-label={cur[lang]} data-lenis-prevent onClick={() => setOpen(null)}>
           <div className="yd-lightbox-img" onClick={(e) => e.stopPropagation()}>
-            <Image key={cur.src} src={G + cur.src} alt={cur[lang]} fill quality={75} sizes="100vw" />
+            <Image key={cur.src} src={G + cur.src} alt={cur.alt?.[lang] ?? cur[lang]} fill quality={75} sizes="100vw" />
           </div>
           <div className="yd-lightbox-bar" onClick={(e) => e.stopPropagation()}>
             <button type="button" onClick={() => setOpen((open - 1 + items.length) % items.length)} aria-label={t.gallery.prev}>

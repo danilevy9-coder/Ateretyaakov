@@ -25,6 +25,7 @@ const en = {
     quote: '“Every bochur who walks through our doors carries the potential for greatness. Our job is to help them discover it.”',
     quoteBy: 'Rabbi Yehoshua Liff',
     fig: 'Fig. 01',
+    figShiur: 'Rabbi Dov Ber Liff, Rosh Yeshiva',
     lifeK: 'Yeshiva life',
     lifeH: 'Life here',
     lifeAccent: 'חיי ישיבה',
@@ -36,7 +37,7 @@ const en = {
     insideH: 'Inside the',
     insideAccent: 'בית מדרש',
     altBeisMedrash: 'A full beis medrash, bochurim learning in chavrusa',
-    altShiur: 'A shiur in the beis medrash',
+    altShiur: 'Rabbi Dov Ber Liff, Rosh Yeshiva, giving a shiur',
     fullGallery: 'Full gallery',
     reelK: 'Life at the yeshiva',
     reelH: 'A day',
@@ -128,6 +129,7 @@ const he: Dict = {
     quote: '״כל בחור שנכנס בשערינו נושא בתוכו פוטנציאל לגדלות. התפקיד שלנו הוא לעזור לו לגלות אותו.״',
     quoteBy: 'הרב יהושע ליף',
     fig: 'תמונה 01',
+    figShiur: 'הרב דב בר ליף, ראש הישיבה',
     lifeK: 'חיי ישיבה',
     lifeH: 'החיים כאן',
     lifeAccent: 'Life here',
@@ -139,7 +141,7 @@ const he: Dict = {
     insideH: 'בתוך',
     insideAccent: 'בית המדרש',
     altBeisMedrash: 'בית מדרש מלא, בחורים לומדים בחברותא',
-    altShiur: 'שיעור בבית המדרש',
+    altShiur: 'הרב דב בר ליף, ראש הישיבה, מוסר שיעור',
     fullGallery: 'לגלריה המלאה',
     reelK: 'החיים בישיבה',
     reelH: 'יום',
@@ -274,7 +276,7 @@ export const impacts = [
 
 // ── Gallery items (labels and categories as on the current site) ──
 export const galleryItems = [
-  { src: 'shiur-rav.jpg', en: 'The Shiur', he: 'השיעור', cat: 'Learning' },
+  { src: 'shiur-rav.jpg', en: 'Rabbi Dov Ber Liff, Rosh Yeshiva', he: 'הרב דב בר ליף, ראש הישיבה', cat: 'Learning', alt: { en: 'Rabbi Dov Ber Liff, Rosh Yeshiva, giving a shiur', he: 'הרב דב בר ליף, ראש הישיבה, מוסר שיעור' } },
   { src: 'beis-medrash-full.jpg', en: 'A Full Beis Medrash', he: 'בית מדרש מלא', cat: 'Learning' },
   { src: 'beis-medrash-seder.jpg', en: 'Seder in the Beis Medrash', he: 'סדר בבית המדרש', cat: 'Learning' },
   { src: 'photo-1.png', en: 'Morning Seder', he: 'סדר בוקר', cat: 'Learning' },

@@ -35,6 +35,8 @@ const en = {
     insideWord: ['', 'I', 'NSIDE'],
     insideH: 'Inside the',
     insideAccent: 'בית מדרש',
+    altBeisMedrash: 'A full beis medrash, bochurim learning in chavrusa',
+    altShiur: 'A shiur in the beis medrash',
     fullGallery: 'Full gallery',
     reelK: 'Life at the yeshiva',
     reelH: 'A day',
@@ -136,6 +138,8 @@ const he: Dict = {
     insideWord: ['בת', 'ו', 'ך'],
     insideH: 'בתוך',
     insideAccent: 'בית המדרש',
+    altBeisMedrash: 'בית מדרש מלא, בחורים לומדים בחברותא',
+    altShiur: 'שיעור בבית המדרש',
     fullGallery: 'לגלריה המלאה',
     reelK: 'החיים בישיבה',
     reelH: 'יום',
@@ -270,6 +274,9 @@ export const impacts = [
 
 // ── Gallery items (labels and categories as on the current site) ──
 export const galleryItems = [
+  { src: 'shiur-rav.jpg', en: 'The Shiur', he: 'השיעור', cat: 'Learning' },
+  { src: 'beis-medrash-full.jpg', en: 'A Full Beis Medrash', he: 'בית מדרש מלא', cat: 'Learning' },
+  { src: 'beis-medrash-seder.jpg', en: 'Seder in the Beis Medrash', he: 'סדר בבית המדרש', cat: 'Learning' },
   { src: 'photo-1.png', en: 'Morning Seder', he: 'סדר בוקר', cat: 'Learning' },
   { src: 'photo-2.png', en: 'Shiur with Rebbe', he: 'שיעור עם הרב', cat: 'Learning' },
   { src: 'photo-3.png', en: 'Shabbos Together', he: 'שבת ביחד', cat: 'Community' },

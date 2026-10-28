@@ -8,6 +8,7 @@ import { Bricolage_Grotesque, Inter_Tight, Frank_Ruhl_Libre, Heebo, Karantina } 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HEBREW_ENABLED, useLang } from '@/lib/yd/lang';
+import { getImageSrc } from '@/lib/imageUrl';
 import type { HanhalaMember } from '@/data/hanhala';
 import './yd.css';
 
@@ -201,10 +202,19 @@ function LabelCursor() {
 // ── Portrait slot: real photo when set, designed placeholder until then ──
 export function Portrait({ m, size }: { m: HanhalaMember; size: 'lg' | 'sm' }) {
   const { t } = useLang();
+  // Photo sources, in order: the file committed in the repo (m.photo), then the
+  // Cloudinary upload made from the /admin page (ay/images/hanhala/<slug>).
+  // If neither loads, show the designed placeholder.
+  const candidates = [m.photo, getImageSrc(`/images/hanhala/${m.slug}.jpg`)]
+    .filter((s): s is string => !!s)
+    .filter((s, i, a) => a.indexOf(s) === i);
+  const [srcIdx, setSrcIdx] = useState(0);
+  const src = srcIdx < candidates.length ? candidates[srcIdx] : null;
   return (
     <div className={`yd-portrait yd-portrait-${size}`}>
-      {m.photo ? (
-        <Image src={m.photo} alt={m.name} fill sizes={size === 'lg' ? '(max-width: 900px) 90vw, 40vw' : '120px'} className="yd-portrait-img" />
+      {src ? (
+        <Image src={src} alt={m.name} fill sizes={size === 'lg' ? '(max-width: 900px) 90vw, 40vw' : '120px'} className="yd-portrait-img"
+          unoptimized={src.startsWith('http')} onError={() => setSrcIdx((i) => i + 1)} />
       ) : (
         <div className="yd-portrait-ph" role="img" aria-label={`${m.name}, ${t.hanhala.photoToCome}`}>
           <span className="yd-ph-name" aria-hidden="true">{m.surname}</span>

@@ -211,15 +211,17 @@ const imageSlots = [
     color: 'from-amber-900/30 to-amber-950/30',
     border: 'border-amber-500/20',
     badge: 'bg-amber-500/20 text-amber-300',
+    // Paths must match data/hanhala.ts slugs — the Hanhala page looks for
+    // ay/images/hanhala/<slug> on Cloudinary when no photo is committed in the repo.
     slots: [
-      { path: '/images/staff/rabbi-dov-ber-liff.jpg', label: 'Rabbi Dov Ber Liff', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
-      { path: '/images/staff/rabbi-larry-shain.jpg', label: 'Rabbi Larry Shain', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
-      { path: '/images/staff/rabbi-weineman.jpg', label: 'Rabbi Weineman', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
-      { path: '/images/staff/rabbi-yehoshua-liff.jpg', label: 'Rabbi Yehoshua Liff', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Home preview', 'Modal'] },
-      { path: '/images/staff/rabbi-greenberg.jpg', label: 'Rabbi Greenberg', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
-      { path: '/images/staff/r-liel-shalom.jpg', label: "R' Liel Shalom", hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
-      { path: '/images/staff/rabbi-klapper.jpg', label: 'Rabbi Klapper', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
-      { path: '/images/staff/rabbi-moti-pogrow.jpg', label: 'Rabbi Moti Pogrow', hint: 'Headshot. Square or portrait.', used: ['Staff card', 'Modal'] },
+      { path: '/images/hanhala/dov-ber-liff.jpg', label: 'Rabbi Dov Ber Liff — Rosh Yeshiva', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page', 'Home preview'] },
+      { path: '/images/hanhala/larry-shain.jpg', label: 'Rabbi Larry Shain — Mashgiach & Administrator', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page', 'Home preview'] },
+      { path: '/images/hanhala/weineman.jpg', label: 'Rabbi Weineman — Mashgiach', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page'] },
+      { path: '/images/hanhala/yehoshua-liff.jpg', label: 'Rabbi Yehoshua Liff — Maggid Shiur', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page', 'Home preview'] },
+      { path: '/images/hanhala/greenberg.jpg', label: 'Rabbi Greenberg — Maggid Shiur', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page'] },
+      { path: '/images/hanhala/liel-shalom.jpg', label: "R' Liel Shalom — Maggid Shiur", hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page'] },
+      { path: '/images/hanhala/klapper.jpg', label: 'Rabbi Klapper — Maggid Shiur', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page'] },
+      { path: '/images/hanhala/moti-pogrow.jpg', label: 'Rabbi Moti Pogrow — Maggid Shiur', hint: 'Portrait 4:5, face in the upper third.', used: ['Hanhala page'] },
     ],
   },
   {

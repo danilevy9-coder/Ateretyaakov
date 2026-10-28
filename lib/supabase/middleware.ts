@@ -35,8 +35,11 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isLogin = path === '/crm/login';
+  // The password-reset page must be reachable from the email link,
+  // before the recovery code in the URL has been exchanged for a session.
+  const isPublic = isLogin || path === '/crm/reset';
 
-  if (!user && path.startsWith('/crm') && !isLogin) {
+  if (!user && path.startsWith('/crm') && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/crm/login';
     url.searchParams.set('next', path);

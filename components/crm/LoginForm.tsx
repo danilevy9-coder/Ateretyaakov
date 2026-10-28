@@ -13,6 +13,27 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  const forgotPassword = async () => {
+    setError('');
+    if (!email.trim()) {
+      setError('Type your email above first, then tap “Forgot password?” again.');
+      return;
+    }
+    setResetSending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/crm/reset`,
+      });
+      if (error) setError(error.message);
+      else setResetSent(true);
+    } finally {
+      setResetSending(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +100,23 @@ export default function LoginForm() {
       >
         {loading ? 'Signing in…' : 'Sign in →'}
       </button>
+
+      <p className="text-center mt-4 text-xs">
+        {resetSent ? (
+          <span className="text-emerald-400">
+            ✓ Reset link sent to {email.trim()} — check your inbox (and spam), then follow the link.
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={forgotPassword}
+            disabled={resetSending}
+            className="text-slate-400 hover:text-amber-300 underline disabled:opacity-50"
+          >
+            {resetSending ? 'Sending reset link…' : 'Forgot password?'}
+          </button>
+        )}
+      </p>
     </form>
   );
 }

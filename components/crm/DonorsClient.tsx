@@ -13,7 +13,33 @@ import { type Category } from './CategoriesClient';
 import { LabelChip, LabelEditor, createLabel, loadLabelsWithCounts } from './Labels';
 import HelpBox from './HelpBox';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZES = [50, 100, 200, 500];
+
+// ── "Last gift" date-range presets ──
+type DatePreset = 'this_month' | 'last_month' | 'last_30' | 'this_year' | 'past_12' | 'all' | 'custom';
+const DATE_PRESETS: { value: DatePreset; label: string }[] = [
+  { value: 'this_month', label: 'Gave this month' },
+  { value: 'last_month', label: 'Gave last month' },
+  { value: 'last_30',    label: 'Last 30 days' },
+  { value: 'this_year',  label: 'This year' },
+  { value: 'past_12',    label: 'Past 12 months' },
+  { value: 'all',        label: 'Any time' },
+  { value: 'custom',     label: 'Pick dates…' },
+];
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const presetRange = (p: DatePreset): { from: string; to: string } | null => {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  switch (p) {
+    case 'this_month': return { from: isoDay(new Date(y, m, 1)), to: isoDay(new Date(y, m + 1, 0)) };
+    case 'last_month': return { from: isoDay(new Date(y, m - 1, 1)), to: isoDay(new Date(y, m, 0)) };
+    case 'last_30': { const d = new Date(now); d.setDate(d.getDate() - 30); return { from: isoDay(d), to: isoDay(now) }; }
+    case 'this_year': return { from: isoDay(new Date(y, 0, 1)), to: isoDay(new Date(y, 11, 31)) };
+    case 'past_12': { const d = new Date(now); d.setMonth(d.getMonth() - 12); return { from: isoDay(d), to: isoDay(now) }; }
+    default: return null; // 'all' and 'custom' have no preset range
+  }
+};
 
 const SEGMENT_LABEL: Record<DonorSegment, string> = {
   monthly_regular: 'Monthly',
@@ -69,6 +95,11 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
   const [labelMatch, setLabelMatch] = useState<'all' | 'any'>('all');
   const [bulkCat, setBulkCat] = useState('');
   const [catBusy, setCatBusy] = useState(false);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+  // "Last gift" date range — defaults to the current calendar month.
+  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   const [sort, setSort] = useState<SortKey>('created_at');
   const [asc, setAsc] = useState(false);
@@ -92,10 +123,19 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     }
     if (segment) query = query.eq('segment', segment);
     if (status) query = query.eq('status', status);
+    // "Last gift" within the chosen period. `to` is inclusive: compare < next day
+    // so it works whether last_gift_at is a date or a timestamp.
+    const range = datePreset === 'custom' ? { from: customFrom, to: customTo } : presetRange(datePreset);
+    if (range?.from) query = query.gte('last_gift_at', range.from);
+    if (range?.to) {
+      const d = new Date(range.to + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      query = query.lt('last_gift_at', isoDay(d));
+    }
     // Hebrew / English / Latin names, any phone format, email, city.
     query = applySearch(query, q, DONOR_TEXT_FIELDS, DONOR_PHONE_FIELDS);
     return query;
-  }, [segment, status, issueType, q, labelFilter, labelMatch]);
+  }, [segment, status, issueType, q, labelFilter, labelMatch, datePreset, customFrom, customTo]);
 
   // Labels always come back in full (for the chips); filtering uses separate
   // aliased inner joins (lf0, lf1…) so a filtered row still shows all its labels.
@@ -115,7 +155,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       let query = supabase.from('donors').select(select, { count: 'exact' });
       query = applyFilters(query, useInner);
       query = query.order(sort, { ascending: asc, nullsFirst: false });
-      query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      query = query.range(page * pageSize, page * pageSize + pageSize - 1);
       const { data, count: c, error } = await query;
       if (error) throw error;
       const list = ((data as any) ?? []) as Row[];
@@ -133,14 +173,14 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     } finally {
       setLoading(false);
     }
-  }, [supabase, applyFilters, issuesOnly, issueType, sort, asc, page]);
+  }, [supabase, applyFilters, issuesOnly, issueType, sort, asc, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
   // Arriving from the top search bar's "See all matching donors".
   useEffect(() => { if (initialQuery !== undefined) setQInput(initialQuery); }, [initialQuery]);
   // Debounce the search box so we don't query on every keystroke.
   useEffect(() => { const t = setTimeout(() => setQ(qInput.trim()), 350); return () => clearTimeout(t); }, [qInput]);
-  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, labelFilter, labelMatch]);
+  useEffect(() => { setPage(0); }, [q, segment, status, issueType, issuesOnly, sort, asc, labelFilter, labelMatch, datePreset, customFrom, customTo, pageSize]);
   const loadLabels = useCallback(async () => {
     const { labels, donorCounts } = await loadLabelsWithCounts(supabase);
     setCats(labels);
@@ -312,7 +352,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
   const selCls = 'bg-[#fff] border border-slate-300 rounded-lg px-3 py-2 text-[15px] text-slate-900';
   const btnLight = 'px-4 py-2 rounded-lg border border-slate-300 bg-[#fff] hover:bg-slate-50 text-[15px] text-slate-800 font-medium disabled:opacity-50';
@@ -325,7 +365,14 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">{onlyIssues ? 'Needs attention' : 'Donors'}</h1>
-          <p className="text-slate-600 text-[15px]">{count.toLocaleString()} {onlyIssues ? 'donors with an open issue' : 'donors'}{q ? ` matching “${q}”` : ''}</p>
+          <p className="text-slate-600 text-[15px]">
+            {count.toLocaleString()} {onlyIssues ? 'donors with an open issue' : 'donors'}{q ? ` matching “${q}”` : ''}
+            {datePreset !== 'all' && (
+              <span> · {datePreset === 'custom'
+                ? `gave ${customFrom ? fmtDate(customFrom) : '…'} – ${customTo ? fmtDate(customTo) : 'today'}`
+                : DATE_PRESETS.find((p) => p.value === datePreset)?.label.toLowerCase()}</span>
+            )}
+          </p>
         </div>
         <div className="flex gap-2">
           <button onClick={exportCsv} disabled={selectingAll} className={btnLight}>
@@ -346,6 +393,7 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
         ) : (
           <>
             <p><b>Search</b> by Hebrew or English name, any phone format, email or city. <b>Filter</b> by type, status, issue or <b>label</b> (tap label chips; pick several to narrow down). Tap a column title to <b>sort</b>.</p>
+            <p><b>Period:</b> the list starts on <b>this month&apos;s givers</b>. Use the period dropdown for last month, last 30 days, this year, past 12 months, <b>any time</b> (everyone), or pick exact dates. Choose how many rows per page at the bottom.</p>
             <p><b>Labels</b> (Fees, Donation, Campaign…): tap <b>+ label</b> on any row to add one or type a new one; tap × on a chip to remove it.</p>
             <p>Tap a <b>name</b> to open the donor page (contact, Nedarim, gifts, messages, notes — all editable). <b>Call / WhatsApp / Email</b> work in one tap.</p>
             <p><b>Bulk:</b> tick boxes (or &quot;Select all matching&quot;) to email everyone selected or add / remove a label for all of them. <b>Download</b> exports the selection (or the whole filtered list).</p>
@@ -370,6 +418,16 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
           <option value="lapsed">Lapsed</option>
           <option value="inactive">Inactive</option>
         </select>
+        <select value={datePreset} onChange={(e) => setDatePreset(e.target.value as DatePreset)} className={selCls} aria-label="Last gift period">
+          {DATE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        {datePreset === 'custom' && (
+          <span className="flex items-center gap-1.5">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className={selCls} aria-label="Gave from date" />
+            <span className="text-slate-500 text-sm">to</span>
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className={selCls} aria-label="Gave until date" />
+          </span>
+        )}
         <select value={issueType} onChange={(e) => { setIssueType(e.target.value); if (e.target.value) setIssuesOnly(true); }} className={selCls} aria-label="Issue">
           <option value="">Any issue</option>
           <option value="failed_payment">Card failed</option>
@@ -527,8 +585,16 @@ export default function DonorsClient({ initialSegment, initialStatus, initialIss
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between mt-4 text-[15px]">
+      <div className="flex items-center justify-between mt-4 text-[15px] flex-wrap gap-3">
         <span className="text-slate-600">Page {page + 1} of {totalPages}</span>
+        <label className="flex items-center gap-2 text-slate-600">
+          Show
+          <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}
+            className="bg-[#fff] border border-slate-300 rounded-lg px-2 py-1.5 text-[15px] text-slate-800" aria-label="Rows per page">
+            {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+          per page
+        </label>
         <div className="flex gap-2">
           <button disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className={btnLight}>Previous</button>
           <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)} className={btnLight}>Next</button>

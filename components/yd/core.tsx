@@ -26,6 +26,10 @@ const fontVars = [display.variable, sans.variable, hebrew.variable, heSans.varia
 
 export const DONATE = 'https://causematch.com/yay';
 export const CHARITY_EXTRA = 'https://www.charityextra.com/ay';
+// Nedarim Plus — the yeshiva's own secure payment page (₪, one-time or monthly keva).
+export const NEDARIM_DONATE = 'https://www.matara.pro/nedarimplus/online/?mosad=7007388';
+// Stripe payment link ($/£/€). Shown once NEXT_PUBLIC_STRIPE_PAYMENT_LINK is set in Vercel.
+export const STRIPE_DONATE = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ?? '';
 export const EMAIL = 'info@ateretyaakov.com';
 export const SOCIAL = {
   youtube: 'https://www.youtube.com/@ישיבתעטרתיעקב',

@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import CdnImage from '@/components/yd/CdnImage';
 import { impacts, tiers } from '@/lib/yd/dict';
 import { useLang } from '@/lib/yd/lang';
-import { CHARITY_EXTRA, DONATE, EMAIL, G, PageHero, SOCIAL, useMagnetic, useMotion, useSharedMotion } from '@/components/yd/core';
+import { CHARITY_EXTRA, DONATE, EMAIL, G, NEDARIM_DONATE, PageHero, SOCIAL, STRIPE_DONATE, useMagnetic, useMotion, useSharedMotion } from '@/components/yd/core';
 
 export default function SupportPage() {
   const { t, lang } = useLang();
@@ -40,6 +40,18 @@ export default function SupportPage() {
               <span className="yd-platform-d">{t.support.charityExtraD}</span>
               <span className="yd-arrow" aria-hidden="true">↗</span>
             </a>
+            <a href={NEDARIM_DONATE} target="_blank" rel="noopener noreferrer" className="yd-platform" data-rise>
+              <span className="yd-platform-k">Nedarim Plus <small>Israel · ₪ · הוראת קבע</small></span>
+              <span className="yd-platform-d">{t.support.nedarimD}</span>
+              <span className="yd-arrow" aria-hidden="true">↗</span>
+            </a>
+            {STRIPE_DONATE && (
+              <a href={STRIPE_DONATE} target="_blank" rel="noopener noreferrer" className="yd-platform" data-rise>
+                <span className="yd-platform-k">Stripe <small>$ · £ · €</small></span>
+                <span className="yd-platform-d">{t.support.stripeD}</span>
+                <span className="yd-arrow" aria-hidden="true">↗</span>
+              </a>
+            )}
           </div>
         </div>
       </section>

@@ -6,6 +6,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all /crm routes (pages + the protected portions).
-  matcher: ['/crm/:path*'],
+  // Protected areas: the CRM and the website admin.
+  matcher: ['/crm/:path*', '/admin/:path*'],
 };

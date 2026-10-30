@@ -121,64 +121,10 @@ function VideoSettings() {
   );
 }
 
-// ── Password gate ─────────────────────────────────────────────
-function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
-  const [input, setInput] = useState('');
-  const [error, setError] = useState(false);
-  const [shake, setShake] = useState(false);
-
-  const attempt = () => {
-    if (input === 'danilevy9') {
-      onUnlock();
-    } else {
-      setError(true);
-      setShake(true);
-      setInput('');
-      setTimeout(() => setShake(false), 600);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center px-6">
-      <div style={shake ? { animation: 'shake 0.5s ease-in-out' } : {}}>
-        <div className="w-full max-w-sm bg-white/3 border border-white/10 rounded-2xl p-8 text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h1 className="text-white text-xl font-bold mb-1">Admin Area</h1>
-          <p className="text-white/40 text-sm mb-6">Enter the password to continue</p>
-          <input
-            type="password"
-            value={input}
-            onChange={(e) => { setInput(e.target.value); setError(false); }}
-            onKeyDown={(e) => e.key === 'Enter' && attempt()}
-            placeholder="Password"
-            autoFocus
-            className={`w-full px-4 py-3 rounded-xl bg-black/40 border text-white placeholder:text-white/20 focus:outline-none text-center text-lg tracking-widest mb-4 transition-colors ${
-              error ? 'border-red-500/60 text-red-400' : 'border-white/10 focus:border-amber-500/50'
-            }`}
-          />
-          {error && <p className="text-red-400 text-xs mb-3">Incorrect password. Try again.</p>}
-          <button
-            onClick={attempt}
-            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-colors"
-          >
-            Unlock →
-          </button>
-        </div>
-      </div>
-      <style>{`
-        @keyframes shake {
-          0%,100%{transform:translateX(0)}
-          15%{transform:translateX(-8px)}
-          30%{transform:translateX(8px)}
-          45%{transform:translateX(-6px)}
-          60%{transform:translateX(6px)}
-          75%{transform:translateX(-3px)}
-          90%{transform:translateX(3px)}
-        }
-      `}</style>
-    </div>
-  );
-}
+// Access control: /admin sits behind the CRM Supabase login — the middleware
+// redirects anyone without a session to /crm/login?next=/admin. The old
+// hardcoded in-page password gate is gone (it shipped the password to every
+// visitor inside the JavaScript bundle).
 
 // ── All image slots ───────────────────────────────────────────
 const imageSlots = [
@@ -465,10 +411,7 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
 // ADMIN PAGE
 // ═══════════════════════════════════════════════════════════════
 export default function AdminPage() {
-  const [unlocked, setUnlocked] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
-
-  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   const totalSlots = imageSlots.flatMap((s) => s.slots).length;
 

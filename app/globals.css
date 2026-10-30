@@ -11,7 +11,6 @@
   --gold: #D4AF37;
   --obsidian: #0a0a0c;
   --navy: #0d1b2a;
-  --cursor-size: 12px;
 }
 
 * {
@@ -30,47 +29,6 @@ body {
   color: #ffffff;
   font-family: var(--font-inter);
   overflow-x: hidden;
-}
-
-/* Hide the native cursor ONLY on the marketing site (which renders the
-   custom cursor). The CRM has no custom cursor, so it keeps the normal mouse. */
-.grain-overlay,
-.grain-overlay * {
-  cursor: none;
-}
-
-/* ── Custom Cursor ── */
-.cursor-dot {
-  width: var(--cursor-size);
-  height: var(--cursor-size);
-  background: var(--gold);
-  border-radius: 50%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 9999;
-  mix-blend-mode: difference;
-  transition: transform 0.1s ease;
-}
-
-.cursor-ring {
-  width: 40px;
-  height: 40px;
-  border: 1.5px solid rgba(212, 175, 55, 0.6);
-  border-radius: 50%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 9998;
-  transition: transform 0.15s ease, width 0.3s ease, height 0.3s ease, border-color 0.3s ease;
-}
-
-.cursor-ring.hovering {
-  width: 60px;
-  height: 60px;
-  border-color: var(--gold);
 }
 
 /* ── Gold Glow Utility ── */
@@ -268,18 +226,6 @@ body {
 }
 .hover-underline:hover::after {
   width: 100%;
-}
-
-/* ── No custom cursor for mobile (touch) ── */
-@media (max-width: 768px) {
-  .grain-overlay,
-  .grain-overlay * {
-    cursor: auto;
-  }
-  .cursor-dot,
-  .cursor-ring {
-    display: none;
-  }
 }
 
 

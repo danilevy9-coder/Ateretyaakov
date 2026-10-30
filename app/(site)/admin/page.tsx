@@ -193,17 +193,20 @@ const imageSlots = [
     ],
   },
   {
-    section: '📜 Home — Horizontal Scroll',
+    section: '🏠 Home & hero photos',
     color: 'from-purple-900/30 to-purple-950/30',
     border: 'border-purple-500/20',
     badge: 'bg-purple-500/20 text-purple-300',
     slots: [
-      { path: '/images/gallery/beis-medrash-1.jpg', label: 'Beis Medrash #1', hint: 'Portrait or landscape.', used: ['Home scroll card 1'] },
-      { path: '/images/gallery/shiur-1.jpg', label: 'Shiur in Session', hint: 'Rabbi giving a shiur.', used: ['Home scroll card 2'] },
-      { path: '/images/gallery/bochurim-1.jpg', label: 'Bochurim Together', hint: 'Group shot.', used: ['Home scroll card 3'] },
-      { path: '/images/gallery/shabbos-1.jpg', label: 'Shabbos', hint: 'Shabbos table or davening.', used: ['Home scroll card 4'] },
-      { path: '/images/gallery/rabbi-liff-teaching.jpg', label: 'Rabbi Liff Teaching', hint: 'Action shot teaching.', used: ['Home scroll card 5'] },
-      { path: '/images/gallery/bochurim-2.jpg', label: 'Brotherhood', hint: 'Candid bochurim photo.', used: ['Home scroll card 6'] },
+      { path: '/images/gallery/beis-medrash-full.jpg', label: 'Beis Medrash — wide', hint: 'Landscape, full room.', used: ['Home full-screen moment'] },
+      { path: '/images/gallery/beis-medrash-seder.jpg', label: 'Beis Medrash — seder', hint: 'Landscape.', used: ['Home collage'] },
+      { path: '/images/gallery/shiur-rav.jpg', label: 'Shiur with the Rav', hint: 'Landscape.', used: ['Home'] },
+      { path: '/images/gallery/shabbos-1.jpg', label: 'Shabbos', hint: 'Shabbos table or davening.', used: ['Home hero rotation', 'Home collage'] },
+      { path: '/images/gallery/bochurim-1.jpg', label: 'Bochurim Together', hint: 'Group shot.', used: ['Home collage'] },
+      { path: '/images/gallery/bochurim-2.jpg', label: 'Brotherhood', hint: 'Candid bochurim photo.', used: ['Gallery page hero'] },
+      { path: '/images/gallery/rabbi-liff-teaching.jpg', label: 'Rabbi Liff Teaching', hint: 'Action shot teaching.', used: ['Home collage'] },
+      { path: '/images/gallery/photo-19.png', label: 'Home collage — tall #19', hint: 'Portrait works best.', used: ['Home collage'] },
+      { path: '/images/gallery/photo-20.png', label: 'Home collage — square #20', hint: 'Square-ish.', used: ['Home collage'] },
     ],
   },
   {
@@ -250,7 +253,10 @@ const imageSlots = [
 // ── Slot card with upload ─────────────────────────────────────
 function SlotCard({ slot }: { slot: { path: string; label: string; hint: string; used: string[] } }) {
   const [imgKey, setImgKey] = useState(0);
-  const [exists, setExists] = useState<boolean | null>(null);
+  // What the live site shows for this slot: an /admin upload ('cloud'), the
+  // photo shipped with the site ('builtin'), or nothing at all ('missing').
+  const [status, setStatus] = useState<'cloud' | 'builtin' | 'missing' | null>(null);
+  const [srcIdx, setSrcIdx] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadOk, setUploadOk] = useState(false);
   const [uploadErr, setUploadErr] = useState('');
@@ -268,8 +274,10 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
     ? `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/f_auto,q_auto/${publicId}`
     : null;
 
-  // The image we actually show: prefer liveUrl (just uploaded) → cloudinary → local path
-  const previewSrc = liveUrl ?? cloudinarySrc ?? slot.path;
+  // Preview in the same order the site resolves it: just-uploaded → Cloudinary
+  // upload → the photo shipped with the site. Walk down the list on error.
+  const candidates = [liveUrl, cloudinarySrc, slot.path].filter((s): s is string => !!s);
+  const previewSrc = candidates[Math.min(srcIdx, candidates.length - 1)];
 
   const upload = useCallback(async (file: File) => {
     setUploading(true);
@@ -289,8 +297,9 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
         const data = await res.json() as { secure_url?: string; error?: { message: string } };
         if (data.secure_url) {
           setLiveUrl(data.secure_url + '?bust=' + Date.now());
+          setSrcIdx(0);
           setUploadOk(true);
-          setExists(true);
+          setStatus('cloud');
           setTimeout(() => setUploadOk(false), 4000);
         } else {
           setUploadErr(data.error?.message ?? 'Cloudinary upload failed');
@@ -303,7 +312,7 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
         const res = await fetch('/api/upload', { method: 'POST', body: form });
         if (res.ok) {
           setUploadOk(true);
-          setExists(true);
+          setStatus('builtin');
           setImgKey((k) => k + 1);
           setTimeout(() => setUploadOk(false), 3000);
         } else {
@@ -348,24 +357,28 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
       {/* Image preview */}
       <div className="relative h-44 bg-black/30 flex items-center justify-center overflow-hidden">
         <Image
-          key={imgKey + (liveUrl ?? cloudinarySrc ?? '')}
+          key={imgKey + previewSrc}
           src={previewSrc}
           alt={slot.label}
           fill
           className="object-cover"
-          onLoad={() => setExists(true)}
-          onError={() => setExists(false)}
+          onLoad={() => setStatus(previewSrc === slot.path ? 'builtin' : 'cloud')}
+          onError={() => {
+            if (srcIdx < candidates.length - 1) setSrcIdx(srcIdx + 1);
+            else setStatus('missing');
+          }}
           unoptimized
         />
 
         {/* Status badge */}
         <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold z-10 ${
           uploadOk ? 'bg-green-400 text-black' :
-          exists === true ? 'bg-green-500/90 text-white' :
-          exists === false ? 'bg-red-500/80 text-white' :
+          status === 'cloud' ? 'bg-green-500/90 text-white' :
+          status === 'builtin' ? 'bg-sky-500/80 text-white' :
+          status === 'missing' ? 'bg-red-500/80 text-white' :
           'bg-white/10 text-white/40'
         }`}>
-          {uploadOk ? '✓ Uploaded!' : exists === true ? '✓ Image found' : exists === false ? '✗ Missing' : '…'}
+          {uploadOk ? '✓ Uploaded!' : status === 'cloud' ? '✓ Your upload is live' : status === 'builtin' ? '● Built-in photo' : status === 'missing' ? '✗ No photo yet' : '…'}
         </div>
 
         {/* Drag hint overlay */}
@@ -377,7 +390,7 @@ function SlotCard({ slot }: { slot: { path: string; label: string; hint: string;
         )}
 
         {/* Placeholder */}
-        {exists === false && !dragOver && (
+        {status === 'missing' && !dragOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pointer-events-none">
             <div className="text-white/10 text-4xl">🖼️</div>
           </div>

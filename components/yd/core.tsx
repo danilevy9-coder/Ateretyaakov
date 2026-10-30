@@ -9,6 +9,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HEBREW_ENABLED, useLang } from '@/lib/yd/lang';
 import { getImageSrc } from '@/lib/imageUrl';
+import CdnImage from '@/components/yd/CdnImage';
 import type { HanhalaMember } from '@/data/hanhala';
 import './yd.css';
 
@@ -202,10 +203,10 @@ function LabelCursor() {
 // ── Portrait slot: real photo when set, designed placeholder until then ──
 export function Portrait({ m, size }: { m: HanhalaMember; size: 'lg' | 'sm' }) {
   const { t } = useLang();
-  // Photo sources, in order: the file committed in the repo (m.photo), then the
-  // Cloudinary upload made from the /admin page (ay/images/hanhala/<slug>).
-  // If neither loads, show the designed placeholder.
-  const candidates = [m.photo, getImageSrc(`/images/hanhala/${m.slug}.jpg`)]
+  // Photo sources, in order: the Cloudinary upload made from the /admin page
+  // (ay/images/hanhala/<slug>) — so an upload always wins — then the file
+  // committed in the repo (m.photo). If neither loads, show the placeholder.
+  const candidates = [getImageSrc(`/images/hanhala/${m.slug}.jpg`), m.photo]
     .filter((s): s is string => !!s)
     .filter((s, i, a) => a.indexOf(s) === i);
   const [srcIdx, setSrcIdx] = useState(0);
@@ -389,7 +390,7 @@ export function PageHero({ kicker, title, pre, accent, intro, src, pos = '50% 45
     <section className="yd-pagehero" aria-label={title}>
       <div className="yd-pagehero-media yd-grade" aria-hidden="true">
         <div className="yd-pagehero-kb">
-          <Image src={src} alt="" fill priority quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: pos }} />
+          <CdnImage src={src} alt="" fill priority quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: pos }} />
         </div>
         <div className="yd-hero-grain" />
       </div>

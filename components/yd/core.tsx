@@ -24,13 +24,13 @@ const heSans = Heebo({ subsets: ['hebrew', 'latin'], variable: '--yd-he-sans', d
 const heDisplay = Karantina({ subsets: ['hebrew', 'latin'], weight: ['400', '700'], variable: '--yd-he-display', display: 'swap' });
 const fontVars = [display.variable, sans.variable, hebrew.variable, heSans.variable, heDisplay.variable].join(' ');
 
-export const DONATE = 'https://causematch.com/yay';
-export const CHARITY_EXTRA = 'https://www.charityextra.com/ay';
 // Nedarim Plus — the yeshiva's own secure payment page (₪, one-time or monthly keva).
 export const NEDARIM_DONATE = 'https://www.matara.pro/nedarimplus/online/?mosad=7007388';
+// All Donate buttons point to Nedarim Plus (Dani, 30 Oct 2026).
+export const DONATE = NEDARIM_DONATE;
 // Stripe payment link ($/£/€). Shown once NEXT_PUBLIC_STRIPE_PAYMENT_LINK is set in Vercel.
 export const STRIPE_DONATE = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ?? '';
-export const EMAIL = 'info@ateretyaakov.com';
+export const EMAIL = 'ateretyaakov9@gmail.com';
 export const SOCIAL = {
   youtube: 'https://www.youtube.com/@ישיבתעטרתיעקב',
   instagram: 'https://www.instagram.com/liffs_yeshiva/',
@@ -207,10 +207,11 @@ function LabelCursor() {
 // ── Portrait slot: real photo when set, designed placeholder until then ──
 export function Portrait({ m, size }: { m: HanhalaMember; size: 'lg' | 'sm' }) {
   const { t } = useLang();
-  // Photo sources, in order: the Cloudinary upload made from the /admin page
-  // (ay/images/hanhala/<slug>) — so an upload always wins — then the file
-  // committed in the repo (m.photo). If neither loads, show the placeholder.
-  const candidates = [getImageSrc(`/images/hanhala/${m.slug}.jpg`), m.photo]
+  // Photo sources, in order: the approved photo committed in the repo (m.photo),
+  // then the Cloudinary upload made from the /admin page (ay/images/hanhala/<slug>).
+  // Repo first — Cloudinary's CDN can serve a stale copy after an overwrite,
+  // so a hand-picked repo photo must always win. If neither loads: placeholder.
+  const candidates = [m.photo, getImageSrc(`/images/hanhala/${m.slug}.jpg`)]
     .filter((s): s is string => !!s)
     .filter((s, i, a) => a.indexOf(s) === i);
   const [srcIdx, setSrcIdx] = useState(0);
@@ -366,7 +367,6 @@ function Footer() {
         <p>{t.footer.tag}</p>
         <p>
           <a href={`mailto:${EMAIL}`} className="yd-footer-mail">{EMAIL}</a>
-          <span className="yd-placeholder"> {t.footer.contactPlaceholder}</span>
         </p>
         <p className="yd-footer-links">
           <Link href="/staff">{t.nav.hanhala}</Link>

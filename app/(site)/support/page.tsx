@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import CdnImage from '@/components/yd/CdnImage';
 import { impacts, tiers } from '@/lib/yd/dict';
 import { useLang } from '@/lib/yd/lang';
-import { CHARITY_EXTRA, DONATE, EMAIL, G, NEDARIM_DONATE, PageHero, SOCIAL, STRIPE_DONATE, useMagnetic, useMotion, useSharedMotion } from '@/components/yd/core';
+import { DONATE, EMAIL, G, NEDARIM_DONATE, PageHero, SOCIAL, STRIPE_DONATE, useMagnetic, useMotion, useSharedMotion } from '@/components/yd/core';
 
 export default function SupportPage() {
   const { t, lang } = useLang();
@@ -26,20 +26,10 @@ export default function SupportPage() {
           <a ref={orbRef} href={DONATE} target="_blank" rel="noopener noreferrer" className="yd-give-orb yd-give-orb-xl" data-cursor={t.give.donate}>
             <span data-magnet-inner>
               {t.give.donate}
-              <small>CauseMatch ↗</small>
+              <small>Nedarim Plus ↗</small>
             </span>
           </a>
           <div className="yd-platforms">
-            <a href={DONATE} target="_blank" rel="noopener noreferrer" className="yd-platform" data-rise>
-              <span className="yd-platform-k">CauseMatch</span>
-              <span className="yd-platform-d">{t.support.causeMatchD}</span>
-              <span className="yd-arrow" aria-hidden="true">↗</span>
-            </a>
-            <a href={CHARITY_EXTRA} target="_blank" rel="noopener noreferrer" className="yd-platform" data-rise>
-              <span className="yd-platform-k">CharityExtra <small>UK · Gift Aid</small></span>
-              <span className="yd-platform-d">{t.support.charityExtraD}</span>
-              <span className="yd-arrow" aria-hidden="true">↗</span>
-            </a>
             <a href={NEDARIM_DONATE} target="_blank" rel="noopener noreferrer" className="yd-platform" data-rise>
               <span className="yd-platform-k">Nedarim Plus <small>Israel · ₪ · הוראת קבע</small></span>
               <span className="yd-platform-d">{t.support.nedarimD}</span>
@@ -103,7 +93,7 @@ export default function SupportPage() {
       <section className="yd-endband yd-endband-dark">
         <h2 className="yd-h2" data-rise>{t.support.questionsH}</h2>
         <p className="yd-endnote" data-rise>{t.support.questions}</p>
-        <a href={`mailto:${EMAIL}`} className="yd-endlink" data-rise>
+        <a href={`mailto:${EMAIL}`} className="yd-endlink yd-endlink-email" data-rise>
           <span className="yd-endlink-k">Email</span>
           <span className="yd-endlink-v" dir="ltr">{EMAIL}</span>
           <span className="yd-arrow" aria-hidden="true">↗</span>

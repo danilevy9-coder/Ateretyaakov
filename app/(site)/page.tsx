@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import CdnImage from '@/components/yd/CdnImage';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { hanhala } from '@/data/hanhala';
@@ -127,7 +127,7 @@ function Hero() {
       <div className="yd-hero-media yd-grade" aria-hidden="true">
         {heroSlides.map((s, i) => (
           <div key={s.src} className={`yd-slide ${i === idx ? 'is-on' : ''} ${i === prev ? 'is-prev' : ''} yd-kb-${i % 3}`}>
-            <Image src={s.src} alt="" fill priority={i === 0} quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: s.pos }} />
+            <CdnImage src={s.src} alt="" fill priority={i === 0} quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: s.pos }} />
           </div>
         ))}
         <div className="yd-hero-shade" />
@@ -324,7 +324,7 @@ export default function HomePage() {
         <div className="yd-idea-grid">
           <figure className="yd-idea-fig" data-cursor={word('guidance')[0]}>
             <div className="yd-unmask yd-grade">
-              <Image src={G + 'shiur-rav.jpg'} alt={t.home.altShiur} fill quality={70} sizes="(max-width: 900px) 100vw, 45vw" style={{ objectPosition: '50% 30%' }} />
+              <CdnImage src={G + 'shiur-rav.jpg'} alt={t.home.altShiur} fill quality={70} sizes="(max-width: 900px) 100vw, 45vw" style={{ objectPosition: '50% 30%' }} />
             </div>
             <figcaption>
               <span>{t.home.fig}</span> {t.home.figShiur}
@@ -363,7 +363,7 @@ export default function HomePage() {
                 return (
                   <figure key={pic.src + ci} className={`yd-river-item yd-shape-${pic.shape}`} data-cursor={a}>
                     <div className="yd-river-img yd-grade">
-                      <Image src={pic.src} alt={a} fill quality={65} sizes="(max-width: 900px) 50vw, 33vw" style={{ objectPosition: pic.pos || '50% 50%' }} />
+                      <CdnImage src={pic.src} alt={a} fill quality={65} sizes="(max-width: 900px) 50vw, 33vw" style={{ objectPosition: pic.pos || '50% 50%' }} />
                     </div>
                     <figcaption>
                       {a} <i className="yd-accent">{b}</i>
@@ -387,7 +387,7 @@ export default function HomePage() {
             return (
               <figure key={s.src} className="yd-stack-card" style={{ zIndex: i + 1 }}>
                 <div className="yd-grade yd-stack-img">
-                  <Image src={s.src} alt={a} fill quality={66} sizes="(max-width: 900px) 100vw, 60vw" style={{ objectPosition: s.pos }} />
+                  <CdnImage src={s.src} alt={a} fill quality={66} sizes="(max-width: 900px) 100vw, 60vw" style={{ objectPosition: s.pos }} />
                 </div>
                 <div className="yd-stack-dim" aria-hidden="true" />
                 <figcaption>
@@ -411,7 +411,7 @@ export default function HomePage() {
       <section className="yd-zoom" aria-labelledby="yd-zoom-h">
         <div className="yd-zoom-stick">
           <div className="yd-zoom-media yd-grade">
-            <Image src={G + 'beis-medrash-full.jpg'} alt={t.home.altBeisMedrash} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: '78% 50%' }} />
+            <CdnImage src={G + 'beis-medrash-full.jpg'} alt={t.home.altBeisMedrash} fill quality={62} sizes="(orientation: portrait) 165vh, 100vw" style={{ objectPosition: '78% 50%' }} />
           </div>
           <div className="yd-zoom-shade" aria-hidden="true" />
           <div className="yd-zoom-mask" aria-hidden="true">
@@ -452,7 +452,7 @@ export default function HomePage() {
               return (
                 <figure key={p.src} className="yd-reel-item" data-cursor={a}>
                   <div className="yd-reel-img yd-grade">
-                    <Image src={p.src} alt={a} fill quality={68} sizes="(max-width: 900px) 80vw, 40vw" style={{ objectPosition: p.pos }} />
+                    <CdnImage src={p.src} alt={a} fill quality={68} sizes="(max-width: 900px) 80vw, 40vw" style={{ objectPosition: p.pos }} />
                   </div>
                   <figcaption>
                     <span className="yd-reel-n">{String(i + 1).padStart(2, '0')}</span>
@@ -590,7 +590,7 @@ export default function HomePage() {
       {/* ── 07 · Support ─────────────────────────────────────────── */}
       <section className="yd-support" aria-labelledby="yd-support-h">
         <div className="yd-support-bg yd-grade" data-speed="0.25" aria-hidden="true">
-          <Image src={G + 'photo-14.png'} alt="" fill quality={60} sizes="100vw" />
+          <CdnImage src={G + 'photo-14.png'} alt="" fill quality={60} sizes="100vw" />
         </div>
         <div className="yd-support-in">
           <p className="yd-kicker yd-kicker-light" data-rise>

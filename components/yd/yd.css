@@ -523,6 +523,9 @@ html.yd-locked, html.yd-locked body { overflow: hidden; }
 
 /* ════════════════ Gallery page ════════════════ */
 .yd-gallery-river { padding-top: 6vh; }
+/* Gallery tiles keep each photo's natural shape (set from the loaded image);
+   16/9 is just the placeholder while loading. */
+.yd-gallery-river .yd-river-img { aspect-ratio: 16 / 9; }
 .yd-filters { position: relative; z-index: 3; display: flex; gap: 8px; overflow-x: auto; padding: 0 var(--pad) 4vh; scrollbar-width: none; }
 .yd-filters::-webkit-scrollbar { display: none; }
 .yd-filters button { flex: 0 0 auto; padding: 10px 16px; border-radius: 999px; border: 1px solid rgba(242, 239, 232, 0.3); background: none; color: var(--paper); font: 600 14px/1 var(--sans); transition: background 0.3s, color 0.3s, transform 0.2s var(--ease); }

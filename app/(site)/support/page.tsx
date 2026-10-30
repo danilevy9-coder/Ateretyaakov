@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import Image from 'next/image';
+import CdnImage from '@/components/yd/CdnImage';
 import { impacts, tiers } from '@/lib/yd/dict';
 import { useLang } from '@/lib/yd/lang';
 import { CHARITY_EXTRA, DONATE, EMAIL, G, PageHero, SOCIAL, useMagnetic, useMotion, useSharedMotion } from '@/components/yd/core';
@@ -72,7 +72,7 @@ export default function SupportPage() {
         <div className="yd-impact-grid">
           <figure className="yd-impact-fig">
             <div className="yd-unmask yd-grade">
-              <Image src={G + 'photo-6.png'} alt="" fill quality={68} sizes="(max-width: 900px) 100vw, 45vw" />
+              <CdnImage src={G + 'photo-6.png'} alt="" fill quality={68} sizes="(max-width: 900px) 100vw, 45vw" />
             </div>
           </figure>
           <ol className="yd-impacts">

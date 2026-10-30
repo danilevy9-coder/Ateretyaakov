@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { getApiUser } from '@/lib/crm/api-auth';
 
 // Images are saved to /public/images/ inside the project.
 // On a self-hosted server (VPS, DigitalOcean, etc.) these files persist forever.
 // On Vercel (serverless) they are ephemeral — use the /api/images route to check.
 
 export async function POST(request: NextRequest) {
+  // Writing files requires the admin to be signed in.
+  const user = await getApiUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;

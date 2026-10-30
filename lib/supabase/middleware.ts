@@ -35,8 +35,12 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isLogin = path === '/crm/login';
+  // The password-reset page must stay reachable from the recovery email link.
+  const isPublic = isLogin || path === '/crm/reset';
+  // Both the CRM and the website admin (/admin) require the same login.
+  const isProtected = path.startsWith('/crm') || path.startsWith('/admin');
 
-  if (!user && path.startsWith('/crm') && !isLogin) {
+  if (!user && isProtected && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/crm/login';
     url.searchParams.set('next', path);

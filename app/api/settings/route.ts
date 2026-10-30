@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { getApiUser } from '@/lib/crm/api-auth';
 
 /**
  * Settings storage — auto-selects the right backend:
@@ -84,6 +85,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Reading settings is public (the homepage needs the video link);
+  // changing them requires the admin to be signed in.
+  const user = await getApiUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json() as Partial<Settings>;
     const existing = UPSTASH_URL ? await redisGet() : await localRead();

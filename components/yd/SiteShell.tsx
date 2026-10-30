@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import LenisProvider from '@/components/LenisProvider';
-import CustomCursor from '@/components/CustomCursor';
 import SiteFooter from '@/components/SiteFooter';
 import { LangProvider } from '@/lib/yd/lang';
 import YdShell from '@/components/yd/core';
@@ -18,7 +17,6 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="grain-overlay">
         <LenisProvider>
-          <CustomCursor />
           <Navbar />
           <main className="min-h-screen">{children}</main>
           <SiteFooter />

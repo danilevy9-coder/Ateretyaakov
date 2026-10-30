@@ -9,7 +9,7 @@ import { hanhala } from '@/data/hanhala';
 import { dict } from '@/lib/yd/dict';
 import { useLang } from '@/lib/yd/lang';
 import {
-  DONATE, CHARITY_EXTRA, SOCIAL, G, Portrait, cssVars, prefersReducedMotion,
+  DONATE, SOCIAL, G, Portrait, cssVars, prefersReducedMotion,
   useFitText, useMagnetic, useMotion, useSharedMotion, useStaffName,
 } from '@/components/yd/core';
 
@@ -602,15 +602,10 @@ export default function HomePage() {
             <a ref={giveRef} href={DONATE} target="_blank" rel="noopener noreferrer" className="yd-give-orb" data-cursor={t.give.donate}>
               <span data-magnet-inner>
                 {t.give.donate}
-                <small>CauseMatch ↗</small>
+                <small>Nedarim Plus ↗</small>
               </span>
             </a>
             <div className="yd-support-links">
-              <a href={CHARITY_EXTRA} target="_blank" rel="noopener noreferrer" className="yd-give">
-                <span className="yd-give-k">{t.give.ukK}</span>
-                <span className="yd-give-v">CharityExtra</span>
-                <span className="yd-arrow" aria-hidden="true">↗</span>
-              </a>
               <Link href="/support" className="yd-give">
                 <span className="yd-give-k">{t.give.moreK}</span>
                 <span className="yd-give-v">{t.give.supportPage}</span>
